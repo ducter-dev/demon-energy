@@ -22,8 +22,8 @@ const api_url = process.env.API_URL
 
 async function monitorearEnergy() {
   console.log('Iniciando monitoreo de energy24-7'.bgBlue)
-  await conectarTPA()
-  setTimeout(monitorearEnergy, 10000)
+  await getCustomersNews()
+  //setTimeout(monitorearEnergy, 3000)
 }
 
 
@@ -81,46 +81,53 @@ async function conectarIRGE() {
 async function getCustomersNews() {
 
   // Obtener la información del api
-
-  await axios.get(`${api_url}/subgrupos`)
+  const url_subgroups = `${api_url}/subgroups`
+  console.log("🚀 ~ file: index.js:86 ~ getCustomersNews ~ url_subgroups:", url_subgroups)
+  
+  await axios.get(url_subgroups)
     .then(response => {
-      const { data } = response
-      console.log(`${data}`.bgGreen)
+      const { data } = response.data
       
-      if (data.lenght > 0) {
-        const conexion = mysql.createConnection({
-          host: data.terminal === 'TPA' ? dbHostTPA : dbHostIRGE,
-          user: data.terminal === 'TPA' ? dbUserTPA : dbUserIRGE,
-          password: data.terminal === 'TPA' ? dbPasswordTPA : dbPasswordIRGE,
-          database: data.terminal === 'TPA' ? dbDatabaseTPA : dbDatabaseIRGE
-        })
-      
-        conexion.connect((error) => {
-          if (error) {
-            console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
-            return null
-          }
-          const idCompania = data.compania == 1 ? data.compania : 3
-          const sql = `INSERT INTO subgrupos(id, orden, nombre, activo, compania, grupo)
-                      VALUES('${data.clave}', 0, '${data.nombre}', 1, ${idCompania}, 1)`
-          conexion.query(sql, (error, result) => {
+      if (data.length > 0) {
+
+        data.forEach(subgrupo => {
+          console.log(`Registrando subgrupo ${subgrupo.nombre}`.bgGreen)
+          const conexion = mysql.createConnection({
+            host: subgrupo.terminal === 'TPA' ? dbHostTPA : dbHostIRGE,
+            user: subgrupo.terminal === 'TPA' ? dbUserTPA : dbUserIRGE,
+            password: subgrupo.terminal === 'TPA' ? dbPasswordTPA : dbPasswordIRGE,
+            database: subgrupo.terminal === 'TPA' ? dbDatabaseTPA : dbDatabaseIRGE
+          })
+        
+          conexion.connect((error) => {
             if (error) {
-              console.error(`Error al realizar la inserción del subgrupo: ${error.stack}`.bgRed)
+              console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
               return null
             }
-            console.log(`Creado en subgrupos: ${result}`.bgGreen)
-            const sql2 = `INSERT INTO nominaciones_orden(subgrupo, orden, color, textColor, label, button)
-                          VALUES('${data.clave}', 0, '#D1D1D1', 'black','black','#B3AEAE')`
-            conexion.query(sql2, (error, result) => {
+            const idCompania = subgrupo.compania == 1 ? subgrupo.compania : 3
+            const sql = `INSERT INTO subgrupos(id, orden, nombre, activo, compania, grupo)
+                        VALUES('${subgrupo.clave}', 0, '${subgrupo.nombre}', 1, ${idCompania}, 1)`
+            conexion.query(sql, (error, result) => {
               if (error) {
                 console.error(`Error al realizar la inserción del subgrupo: ${error.stack}`.bgRed)
                 return null
               }
-              console.log(`Agregeado al grupo de nominaciones: ${result}`.bgGreen)
+              console.log(`Creado en subgrupos: ${subgrupo.nombre}`.bgGreen)
+              console.log(`Ha sido registrado subgrupo: ${result}`.bgGreen)
+              const sql2 = `INSERT INTO nominaciones_orden(subgrupo, orden, color, textColor, label, button)
+                            VALUES('${subgrupo.clave}', 0, '#D1D1D1', 'black','black','#B3AEAE')`
+              conexion.query(sql2, (error, result) => {
+                if (error) {
+                  console.error(`Error al realizar la inserción del subgrupo: ${error.stack}`.bgRed)
+                  return null
+                }
+                console.log(`Agregado al grupo de nominaciones: ${subgrupo.nombre}`.bgGreen)
+              })
+              // Enviara actualización del id de subgrupo
+              conexion.end()
             })
-            // Enviara actualización del id de subgrupo
-            conexion.end()
           })
+
         })
       } else {
         console.log('No existen subgrupos nuevos.'.bgYellow)
@@ -130,8 +137,109 @@ async function getCustomersNews() {
       console.log(`Error: ${error}`.bgRed)
     })
 
-    //
+  // Obtener operadores nuevos
+  //getOperatorsNews()
 
+}
+
+
+async function getOperatorsNews() {
+  // Obtener la información del api tpa
+  const url_tpa = `${api_url}/operators?terminal=tpa` 
+  console.log(url_tpa.bgCyan)
+  await axios.get(url_tpa)
+    .then(response => {
+      const { data } = response.data
+      console.log("🚀 ~ file: index.js:150 ~ getOperatorsNews ~ data:", data)
+      
+      if (data.length > 0) {
+
+        data.forEach(operator => {
+          console.log(`Registrando operator ${operator.nombre}`.bgGreen)
+          
+          const conexion = mysql.createConnection({
+            host: dbHostTPA,
+            user: dbUserTPA,
+            password: dbPasswordTPA,
+            database: dbDatabaseTPA,
+          })
+          
+          conexion.connect((error) => {
+            if (error) {
+              console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+            }
+            const sql = `INSERT INTO operador(id_operador, nombre_operador, grupo, telefonoOperador, identificacion)
+                        VALUES('${operator.ID}', '${operator.nombre}', 'Nieto', '', '${operator.clave_elector}')`
+            conexion.query(sql, (error, result) => {
+              if (error) {
+                console.error(`Error al realizar la inserción del operador: ${error.stack}`.bgRed)
+              }
+              console.log(`Ha sido registrado operador ${operator.nombre} en la terminal ${operator.terminal}`.bgGreen)
+              // Enviara actualización del id de operador
+              conexion.end()
+            })
+          })
+        })
+
+        // Actualizar Autotanques
+      } else {
+        console.log('No existen operadores nuevos en TPA.'.bgYellow)
+      }
+    })
+    .catch(error => {
+      console.log(`Error: ${error}`.bgRed)
+    })
+
+
+  // Obtener la información del api irge
+  const url_irge = `${api_url}/operators?terminal=irge` 
+  console.log(url_irge.bgCyan)
+  await axios.get(url_irge)
+  .then(response => {
+    const { data } = response.data
+    console.log("🚀 ~ file: index.js:200 ~ getOperatorsNews ~ data:", data)
+    
+    if (data.length > 0) {
+
+      data.forEach(operator => {
+        console.log(`Registrando operator ${operator.nombre}`.bgGreen)
+        
+        const conexion = mysql.createConnection({
+          host: dbHostIRGE,
+          user: dbUserIRGE,
+          password: dbPasswordIRGE,
+          database: dbDatabaseIRGE,
+        })
+        
+        conexion.connect((error) => {
+          if (error) {
+            console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+            return null
+          }
+          const sql = `INSERT INTO operador(id_operador, nombre_operador, grupo, telefonoOperador, identificacion)
+                      VALUES('${operator.ID}', '${operator.nombre}', 'Nieto', '', '${operator.clave_elector}')`
+          conexion.query(sql, (error, result) => {
+            if (error) {
+              console.error(`Error al realizar la inserción del operador: ${error.stack}`.bgRed)
+              return null
+            }
+            console.log(`Ha sido registrado operador ${operator.nombre} en la terminal ${operator.terminal}`.bgGreen)
+            // Enviara actualización del id de operador
+            conexion.end()
+          })
+        })
+      })
+      
+      // Actualizar Autotanques
+    } else {
+      console.log('No existen operadores nuevos en IRGE.'.bgYellow)
+    }
+  })
+  .catch(error => {
+    console.log(`Error: ${error}`.bgRed)
+  })
+  // Obtener autotanques nuevos
+  console.log('Buscar autanques'.bgYellow)
 }
 
 
