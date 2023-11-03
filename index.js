@@ -22,7 +22,7 @@ const api_url = process.env.API_URL
 
 async function monitorearEnergy() {
   console.log('Iniciando monitoreo de energy24-7'.bgBlue)
-  await getCustomersNews()
+  await getEquipmentsNews()
   //setTimeout(monitorearEnergy, 3000)
 }
 
@@ -238,6 +238,106 @@ async function getOperatorsNews() {
   .catch(error => {
     console.log(`Error: ${error}`.bgRed)
   })
+  // Obtener autotanques nuevos
+  console.log('Buscar autanques'.bgYellow)
+}
+
+
+async function getEquipmentsNews() {
+  // Obtener la información del api tpa
+  const url_tpa = `${api_url}/equipments?terminal=tpa` 
+  console.log(url_tpa.bgCyan)
+  const idBase = 2650
+
+  await axios.get(url_tpa)
+    .then(response => {
+      const { data } = response.data
+      console.log("🚀 ~ file: index.js:253 ~ getEquipmentsNews ~ data:", data)
+      
+      if (data.length > 0) {
+
+        data.forEach(equipment => {
+          console.log(`Registrando autotanque ${equipment.nombre}`.bgGreen)
+          
+          const conexion = mysql.createConnection({
+            host: dbHostTPA,
+            user: dbUserTPA,
+            password: dbPasswordTPA,
+            database: dbDatabaseTPA,
+          })
+          
+          conexion.connect((error) => {
+            if (error) {
+              console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+            }
+            const sql = `INSERT INTO autotanques(SbiID, pg, capacidad, placa, embarque, fechaMod, idCRE)
+                        VALUES('${idBase + equipment.ID}', '${equipment.pg}','${equipment.capacidad}', '${equipment.placa}', 0, '2023-11-03 16:16:00', '${equipment.idCRE}')`
+            conexion.query(sql, (error, result) => {
+              if (error) {
+                console.error(`Error al realizar la inserción del autotanque: ${error.stack}`.bgRed)
+              }
+              console.log(`Ha sido registrado autotanque ${equipment.pg} en la terminal TPA`.bgGreen)
+              // Enviara actualización del id de operador
+              conexion.end()
+            })
+          })
+        })
+
+        // Actualizar Autotanques
+      } else {
+        console.log('No existen operadores nuevos en TPA.'.bgYellow)
+      }
+    })
+    .catch(error => {
+      console.log(`Error: ${error}`.bgRed)
+    })
+
+
+  // Obtener la información del api irge
+  const url_irge = `${api_url}/equipments?terminal=irge` 
+  console.log(url_irge.bgCyan)
+  await axios.get(url_irge)
+    .then(response => {
+      const { data } = response.data
+      console.log("🚀 ~ file: index.js:253 ~ getEquipmentsNews ~ data:", data)
+      
+      if (data.length > 0) {
+
+        data.forEach(equipment => {
+          console.log(`Registrando autotanque ${equipment.nombre}`.bgGreen)
+          
+          const conexion = mysql.createConnection({
+            host: dbHostIRGE,
+            user: dbUserIRGE,
+            password: dbPasswordIRGE,
+            database: dbDatabaseIRGE,
+          })
+          
+          conexion.connect((error) => {
+            if (error) {
+              console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+            }
+            const sql = `INSERT INTO autotanques(SbiID, pg, capacidad, placa, embarque, fechaMod, idCRE)
+                        VALUES('${idBase + equipment.ID}', '${equipment.pg}','${equipment.capacidad}', '${equipment.placa}', 0, '2023-11-03 16:16:00', '${equipment.idCRE}')`
+            conexion.query(sql, (error, result) => {
+              if (error) {
+                console.error(`Error al realizar la inserción del autotanque: ${error.stack}`.bgRed)
+              }
+              console.log(`Ha sido registrado autotanque ${equipment.pg} en la terminal IRGE`.bgGreen)
+              // Enviara actualización del id de operador
+              conexion.end()
+            })
+          })
+        })
+
+        // Actualizar Autotanques
+      } else {
+        console.log('No existen operadores nuevos en IRGE.'.bgYellow)
+      }
+    })
+    .catch(error => {
+      console.log(`Error: ${error}`.bgRed)
+    })
   // Obtener autotanques nuevos
   console.log('Buscar autanques'.bgYellow)
 }
