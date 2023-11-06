@@ -28,7 +28,7 @@ const api_url = process.env.API_URL
  */
 async function monitorearEnergy() {
   console.log('🚀 Iniciando monitoreo de energy24-7'.bgBlue)
-  await getNominations()
+  await getDailyNominations()
   //setTimeout(monitorearEnergy, 3000)
 }
 
@@ -443,6 +443,97 @@ async function getNominations ()
     .catch(error => {
       console.log(`Error: ${error}`.bgRed)
     })
+}
+
+/**
+ * Retrieves the daily nominations from the API and updates the corresponding records in the database.
+ *
+ * @return {Promise<void>} A Promise that resolves when the nominations have been updated.
+ */
+async function getDailyNominations()
+{
+  const url_nominations = `${api_url}/daily_nominations`
+
+  await axios.get(url_nominations)
+    .then(response => {
+      const { data } = response.data
+
+      if (data.length > 0) {
+        data.forEach(daily_nom => {
+          console.log(`Registrando nominación mensual con id: ${daily_nom.ID}`.bgYellow)
+          
+          // TPA
+          const conexionTPA = mysql.createConnection({
+            host: dbHostTPA,
+            user: dbUserTPA,
+            password: dbPasswordTPA,
+            database: dbDatabaseTPA,
+          })
+
+          const subgrupoTPA = daily_nom.subgrupos.find( s => s.terminal === 'TPA')
+
+          if (subgrupoTPA) {
+            conexionTPA.connect((error) => {
+              if (error) {
+                console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+                return null
+              }
+
+              const sql = `UPDATE nominaciones SET nominacion = ${parseInt(daily_nom.volumen_tpa)} WHERE unidadNeg='${subgrupoTPA.clave}' AND fecha_nominacion='${daily_nom.fecha}'`
+                                  
+              console.log("🚀 ~ file: index.js:479 ~ conexionTPA.connect ~ sql:", sql)
+              conexionTPA.query(sql, (error, result) => {
+                if (error) {
+                  console.error(`Error al realizar la inserción del nominación diaria: ${error.stack}`.bgRed)
+                  return null
+                }
+                console.log(`Actualizada a las nominación diaria TPA: ${daily_nom.fecha} - subgrupo: ${subgrupoTPA.clave}`.bgGreen)
+              })
+            })
+          }  else {
+            console.log('Error: subgrupo vacío en TPA.'.bgRed)
+          }
+
+          // IRGE
+          const conexionIRGE = mysql.createConnection({
+            host: dbHostIRGE,
+            user: dbUserIRGE,
+            password: dbPasswordIRGE,
+            database: dbDatabaseIRGE,
+          })
+
+          const subgrupoIRGE = daily_nom.subgrupos.find( s => s.terminal === 'TPA')
+
+          if (subgrupoIRGE) {
+            conexionIRGE.connect((error) => {
+              if (error) {
+                console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+                return null
+              }
+
+              const sql = `UPDATE nominaciones SET nominacion = ${parseInt(daily_nom.volumen_dda)} WHERE unidadNeg='${subgrupoIRGE.clave}' AND fecha_nominacion='${daily_nom.fecha}'`
+                                  
+              console.log("🚀 ~ file: index.js:511 ~ conexionIRGE.connect ~ sql:", sql)
+              conexionIRGE.query(sql, (error, result) => {
+                if (error) {
+                  console.error(`Error al realizar la inserción del nominación diaria: ${error.stack}`.bgRed)
+                  return null
+                }
+                console.log(`Actualizada a las nominación diaria IRGE: ${daily_nom.fecha} - subgrupo: ${subgrupoIRGE.clave}`.bgGreen)
+              })
+            })
+          }  else {
+            console.log('Error: subgrupo vacío en IRGE.'.bgRed)
+          }
+        })
+      } else {
+        console.log('No existen las nominaciones diarias actualizadas.'.bgYellow)
+      }
+    })
+    .catch(error => {
+      console.log(`Error: ${error}`.bgRed)
+    })
+
 }
 
 monitorearEnergy()
