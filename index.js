@@ -2,8 +2,7 @@ require('dotenv').config()
 const mysql = require('mysql')
 const axios = require('axios')
 var colors = require('colors')
-const { parse } = require('path')
-
+const { format, subDays } = require('date-fns')
 
 colors.enable()
 
@@ -18,6 +17,8 @@ const dbUserIRGE = process.env.USER_DB_IRGE
 const dbPasswordIRGE = process.env.PASSWORD_DB_IRGE
 const dbDatabaseIRGE = process.env.DB_IRGE
 
+const id_user_reg = process.env.ID_USER_REG
+const user_reg = process.env.USER_REG
 
 const api_url = process.env.API_URL
 
@@ -28,7 +29,7 @@ const api_url = process.env.API_URL
  */
 async function monitorearEnergy() {
   console.log('🚀 Iniciando monitoreo de energy24-7'.bgBlue)
-  await getDailyNominations()
+  await getProgramIRGE()
   //setTimeout(monitorearEnergy, 3000)
 }
 
@@ -533,6 +534,136 @@ async function getDailyNominations()
     .catch(error => {
       console.log(`Error: ${error}`.bgRed)
     })
+
+}
+
+
+/**
+ * Retrieves the program TPA from the API and inserts it into the database.
+ *
+ * @return {Promise<void>} - A promise that resolves when the program TPA is retrieved and inserted.
+ */
+async function getProgramTPA()
+{
+  const url_program = `${api_url}/programs?terminal=tpa`
+
+  await axios.get(url_program)
+    .then(response => {
+      const { data } = response.data
+      
+      if (data.length > 0) {
+        const conexion = mysql.createConnection({
+          host: dbHostTPA,
+          user: dbUserTPA,
+          password: dbPasswordTPA,
+          database: dbDatabaseTPA,
+        })
+
+        data.forEach(program => {
+
+          const fecha = new Date()
+          const fechaFormateada = format(fecha, 'yyyy-MM-dd HH:mm:ss')
+          const fechaReporte = getDateReport(fechaFormateada)
+          const subgrupo = program.subgrupos.find( s => s.terminal === 'TPA')
+
+          conexion.connect((error) => {
+            if (error) {
+              console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+              return null
+            }
+  
+            const sql = `INSERT INTO accesos (claveAcceso, fechaLlegada, embarque, estado, presion, fechaReporte, pg, idUser_reg, usuario_reg, subgrupo, programa, id_programa_energy)
+                        VALUES ('${program.clave}', '${fechaFormateada}', 0, 1, 0, '${fechaReporte}', '${program.pg}', '${id_user_reg}', '${user_reg}', '${subgrupo.clave}', 1, ${program.ID})`
+                                
+            conexion.query(sql, (error, result) => {
+              if (error) {
+                console.error(`Error al realizar la inserción del programa diaria: ${error.stack}`.bgRed)
+                return null
+              }
+              console.log(`Se insertó la programación en TPA: ${program.pg} - subgrupo: ${subgrupo.clave}`.bgGreen)
+            })
+          })
+        })
+      }
+    })
+    .catch(error => {
+      console.log(`Error: ${error}`.bgRed)
+    })
+}
+
+
+/**
+ * Retrieves the program from the API and inserts it into the database.
+ *
+ * @return {Promise<void>} Returns a promise that resolves when the program is successfully inserted into the database.
+ */
+async function getProgramIRGE()
+{
+  const url_program = `${api_url}/programs?terminal=tpa`
+
+  await axios.get(url_program)
+    .then(response => {
+      const { data } = response.data
+      
+      if (data.length > 0) {
+        const conexion = mysql.createConnection({
+          host: dbHostIRGE,
+          user: dbUserIRGE,
+          password: dbPasswordIRGE,
+          database: dbDatabaseIRGE,
+        })
+
+        data.forEach(program => {
+
+          const fecha = new Date()
+          const fechaFormateada = format(fecha, 'yyyy-MM-dd HH:mm:ss')
+          const fechaReporte = getDateReport(fechaFormateada)
+          const subgrupo = program.subgrupos.find( s => s.terminal === 'DDA')
+
+          conexion.connect((error) => {
+            if (error) {
+              console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+              return null
+            }
+  
+            const sql = `INSERT INTO accesos (claveAcceso, fechaLlegada, embarque, estado, presion, fechaReporte, pg, idUser_reg, usuario_reg, subgrupo, programa, id_programa_energy)
+                        VALUES ('${program.clave}', '${fechaFormateada}', 0, 1, 0, '${fechaReporte}', '${program.pg}', '${id_user_reg}', '${user_reg}', '${subgrupo.clave}', 1, ${program.ID})`
+                                
+            conexion.query(sql, (error, result) => {
+              if (error) {
+                console.error(`Error al realizar la inserción del programa diaria: ${error.stack}`.bgRed)
+                return null
+              }
+              console.log(`Se insertó la programación en IRGE: ${program.pg} - subgrupo: ${subgrupo.clave}`.bgGreen)
+            })
+          })
+        })
+      }
+    })
+    .catch(error => {
+      console.log(`Error: ${error}`.bgRed)
+    })
+}
+
+/**
+ * Generates a report date based on the formatted input date.
+ *
+ * @param {string} fechaFormateada - The formatted input date.
+ * @return {string} The generated report date.
+ */
+function getDateReport(fechaFormateada)
+{
+  const fecha = new Date(fechaFormateada)
+  const hora = format(fecha, 'HH')
+  let fechaReporte = ''
+
+  if (parseInt(hora) < 5) {
+    fechaReporte = format(subDays(fecha, 1), 'yyyy-MM-dd')
+  } else {
+    fechaReporte = format(fecha, 'yyyy-MM-dd')
+  }
+
+  return fechaReporte
 
 }
 
