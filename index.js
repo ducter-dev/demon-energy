@@ -2,6 +2,7 @@ require('dotenv').config()
 const mysql = require('mysql')
 const axios = require('axios')
 var colors = require('colors')
+const { parse } = require('path')
 
 
 colors.enable()
@@ -20,69 +21,26 @@ const dbDatabaseIRGE = process.env.DB_IRGE
 
 const api_url = process.env.API_URL
 
+/**
+ * Monitors energy24-7.
+ *
+ * @return {Promise<void>} Returns a promise that resolves when the monitoring is complete.
+ */
 async function monitorearEnergy() {
-  console.log('Iniciando monitoreo de energy24-7'.bgBlue)
-  await getEquipmentsNews()
+  console.log('🚀 Iniciando monitoreo de energy24-7'.bgBlue)
+  await getNominations()
   //setTimeout(monitorearEnergy, 3000)
 }
 
-
-async function conectarTPA () {
-  const conexion = mysql.createConnection({
-    host: dbHostTPA,
-    user: dbUserTPA,
-    password: dbPasswordTPA,
-    database: dbDatabaseTPA,
-  })
-
-  await conexion.connect((error) => {
-    if (error) {
-      console.error('Error al conectar a la base de datos: ' + error.stack)
-      return null
-    }
-    
-    conexion.query('SELECT * FROM llenaderas_web', (error, results, fields) => {
-      if (error) {
-        console.error('Error al realizar la consulta: ' + error.stack)
-        return []
-      }
-      conexion.end()
-      console.log(results)
-    })
-  })
-}
-
-
-async function conectarIRGE() {
-  const conexion = mysql.createConnection({
-    host: dbHostIRGE,
-    user: dbUserIRGE,
-    password: dbPasswordIRGE,
-    database: dbDatabaseIRGE,
-  })
-
-  await conexion.connect((error) => {
-    if (error) {
-      console.error('Error al conectar a la base de datos: ' + error.stack)
-      return null
-    }
-    
-    conexion.query('SELECT * FROM llenaderas_web', (error, results, fields) => {
-      if (error) {
-        console.error('Error al realizar la consulta: ' + error.stack)
-        return []
-      }
-      conexion.end()
-      console.log(results)
-    })
-  })
-}
-
+/**
+ * Retrieves the latest news about customers from the API.
+ *
+ * @return {Promise} A promise that resolves with the latest customer news.
+ */
 async function getCustomersNews() {
 
   // Obtener la información del api
   const url_subgroups = `${api_url}/subgroups`
-  console.log("🚀 ~ file: index.js:86 ~ getCustomersNews ~ url_subgroups:", url_subgroups)
   
   await axios.get(url_subgroups)
     .then(response => {
@@ -143,6 +101,11 @@ async function getCustomersNews() {
 }
 
 
+/**
+ * Retrieves the latest news from the operators API and registers them in the database.
+ *
+ * @return {Promise<void>} This function does not return anything.
+ */
 async function getOperatorsNews() {
   // Obtener la información del api tpa
   const url_tpa = `${api_url}/operators?terminal=tpa` 
@@ -243,6 +206,11 @@ async function getOperatorsNews() {
 }
 
 
+/**
+ * Retrieves the latest information about equipments from the API and registers them in the database.
+ *
+ * @return {Promise<void>} A Promise that resolves when the function completes.
+ */
 async function getEquipmentsNews() {
   // Obtener la información del api tpa
   const url_tpa = `${api_url}/equipments?terminal=tpa` 
@@ -271,7 +239,7 @@ async function getEquipmentsNews() {
               console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
             }
             const sql = `INSERT INTO autotanques(SbiID, pg, capacidad, placa, embarque, fechaMod, idCRE)
-                        VALUES('${idBase + equipment.ID}', '${equipment.pg}','${equipment.capacidad}', '${equipment.placa}', 0, '2023-11-03 16:16:00', '${equipment.idCRE}')`
+                        VALUES('${idBase + equipment.ID}', '${equipment.pg}','${equipment.capacidad}', '${equipment.placa}', 0, '${equipment.fecha_creacion}', '${equipment.idCRE}')`
             conexion.query(sql, (error, result) => {
               if (error) {
                 console.error(`Error al realizar la inserción del autotanque: ${error.stack}`.bgRed)
@@ -318,7 +286,7 @@ async function getEquipmentsNews() {
               console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
             }
             const sql = `INSERT INTO autotanques(SbiID, pg, capacidad, placa, embarque, fechaMod, idCRE)
-                        VALUES('${idBase + equipment.ID}', '${equipment.pg}','${equipment.capacidad}', '${equipment.placa}', 0, '2023-11-03 16:16:00', '${equipment.idCRE}')`
+                        VALUES('${idBase + equipment.ID}', '${equipment.pg}','${equipment.capacidad}', '${equipment.placa}', 0, '${equipment.fecha_creacion}', '${equipment.idCRE}')`
             conexion.query(sql, (error, result) => {
               if (error) {
                 console.error(`Error al realizar la inserción del autotanque: ${error.stack}`.bgRed)
@@ -343,14 +311,137 @@ async function getEquipmentsNews() {
 }
 
 
-async function getNominaciones ()
+/**
+ * Retrieves nominations from the API and inserts them into the database.
+ *
+ * @return {Promise<void>} Returns a Promise that resolves when the function completes.
+ */
+async function getNominations ()
 {
-  await axios.get(api_url)
+  // Obtener la información del api
+  const url_nominations = `${api_url}/nominations`
+  
+  await axios.get(url_nominations)
     .then(response => {
-      console.log(response.data)
+      const { data } = response.data
+
+      if (data.length > 0) {
+
+        data.forEach(nomination => {
+          console.log(`Registrando nominación mensual con id: ${nomination.ID}`.bgYellow)
+
+          // Ver si tiene nominacion en TPA
+          
+          
+          if (nomination.volumen_tpa > 0) {
+            const conexionTPA = mysql.createConnection({
+              host: dbHostTPA,
+              user: dbUserTPA,
+              password: dbPasswordTPA,
+              database: dbDatabaseTPA,
+            })
+            const anioTPA = parseInt(nomination.fecha_final.substr(0,4))
+            const monthTPA = nomination.fecha_final.substr(5,2)
+            const subgrupoTPA = nomination.subgrupos.find( s => s.terminal === 'TPA')
+            
+            if (subgrupoTPA) {
+              conexionTPA.connect((error) => {
+                if (error) {
+                  console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+                  return null
+                }
+                
+                const sql = `INSERT INTO nominacion_mensual(unidadNeg, anio, mes, nominacion)
+                            VALUES('${subgrupoTPA.clave}', ${anioTPA}, '${monthTPA}', ${nomination.volumen_tpa})`
+                            
+                console.log(`Agregado a las nominaciones mensuales TPA: ${nomination.ID} - subgrupo: ${subgrupoTPA.clave}`.bgGreen)
+                conexionTPA.query(sql, (error, result) => {
+                  if (error) {
+                    console.error(`Error al realizar la inserción de la nominación mensual: ${error.stack}`.bgRed)
+                    return null
+                  }
+                  
+                  nomination.nominacion_diaria.forEach(nomDay => {
+    
+                    const sql2 = `INSERT INTO nominaciones(unidadNeg, nominacion, fecha_nominacion)
+                                  VALUES('${subgrupoTPA.clave}', ${parseInt(nomDay.TPA)}, '${nomDay.fecha}')`
+                                  
+                    conexionTPA.query(sql2, (error, result) => {
+                      if (error) {
+                        console.error(`Error al realizar la inserción del nominación diaria: ${error.stack}`.bgRed)
+                        return null
+                      }
+                      console.log(`Agregado a las nominaciones diarias TPA: ${nomDay.fecha} - subgrupo: ${subgrupoTPA.clave}`.bgGreen)
+                    })
+                  })
+    
+                  // Enviara actualización del id de subgrupo
+                })
+              })
+            } else {
+              console.log('Error: subgrupo vacío en TPA.'.bgRed)
+            }
+          }
+
+          if (nomination.volumen_dda > 0) {
+            // Ver si tiene nominacion en IRGE
+            const conexionIRGE= mysql.createConnection({
+              host: dbHostIRGE,
+              user: dbUserIRGE,
+              password: dbPasswordIRGE,
+              database: dbDatabaseIRGE,
+            })
+
+            const anioIRGE = parseInt(nomination.fecha_final.substr(0,4))
+            const monthIRGE = nomination.fecha_final.substr(5,2)
+            const subgrupoIRGE = nomination.subgrupos.find( s => s.terminal === 'DDA')
+            if (subgrupoIRGE) {
+              conexionIRGE.connect((error) => {
+                if (error) {
+                  console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+                  return null
+                }
+                
+                const sql = `INSERT INTO nominacion_mensual(unidadNeg, anio, mes, nominacion)
+                            VALUES('${subgrupoIRGE.clave}', ${anioIRGE}, '${monthIRGE}', ${nomination.volumen_dda})`
+    
+                console.log(`Agregado a las nominaciones mensuales IRGE: ${nomination.ID} - subgrupo: ${subgrupoIRGE.clave}`.bgGreen)
+                conexionIRGE.query(sql, (error, result) => {
+                  if (error) {
+                    console.error(`Error al realizar la inserción de la nominación: ${error.stack}`.bgRed)
+                    return null
+                  }
+                  
+                  nomination.nominacion_diaria.forEach(nomDay => {
+    
+                    const sql2 = `INSERT INTO nominaciones(unidadNeg, nominacion, fecha_nominacion)
+                                  VALUES('${subgrupoIRGE.clave}', ${parseInt(nomDay.DDA)}, '${nomDay.fecha}')`
+                                  
+                    conexionIRGE.query(sql2, (error, result) => {
+                      if (error) {
+                        console.error(`Error al realizar la inserción del nominación diaria: ${error.stack}`.bgRed)
+                        return null
+                      }
+                      console.log(`Agregado a las nominaciones diarias IRGE: ${nomDay.fecha} - subgrupo: ${subgrupoIRGE.clave}`.bgGreen)
+
+                    })
+                  })
+    
+                  // Enviara actualización del id de subgrupo
+    
+                })
+              })
+            } else {
+              console.log('Error: subgrupo vacío en IRGE.'.bgRed)
+            }
+          }
+        })
+      } else {
+        console.log('No existen las nominaciones mensuales nuevas.'.bgYellow)
+      }
     })
     .catch(error => {
-      console.log(error)
+      console.log(`Error: ${error}`.bgRed)
     })
 }
 
