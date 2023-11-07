@@ -30,7 +30,7 @@ const api_url = process.env.API_URL
  */
 async function monitorearEnergy() {
   console.log('🚀 Iniciando monitoreo de energy24-7'.bgBlue)
-  await getDailyNominations()
+  await getProgramTPA()
   //setTimeout(monitorearEnergy, 3000)
 }
 
@@ -337,6 +337,7 @@ async function getEquipmentsNewsTPA() {
             })
           })
         })
+
         
       } else {
         console.log('No existen operadores nuevos en TPA.'.yellow)
@@ -479,6 +480,8 @@ async function getNominations ()
                         return null
                       }
                       console.log(`Agregado a las nominaciones diarias TPA: ID: ${nomDay.ID_DIA} - ${nomDay.fecha} - subgrupo: ${subgrupoTPA.clave}`.bgGreen)
+                      conexionTPA.end()
+
                       // Enviara actualización del id de nominación
                       const url_update_daily_nomination = `${api_url}/daily_nominations`
                       let dataForm = new FormData()
@@ -571,7 +574,8 @@ async function getNominations ()
                         return null
                       }
                       console.log(`Agregado a las nominaciones diarias IRGE: ID: ${nomDay.ID_DIA} - ${nomDay.fecha} - subgrupo: ${subgrupoIRGE.clave}`.bgGreen)
-                      
+                      conexionIRGE.end()
+
                       // Enviara actualización del id de nominación
                       const url_update_daily_nomination = `${api_url}/daily_nominations`
                       let dataForm = new FormData()
@@ -675,6 +679,7 @@ async function getDailyNominations()
                   return null
                 }
                 console.log(`Actualizada a las nominación diaria TPA: ${daily_nom.fecha} - subgrupo: ${subgrupoTPA.clave}`.bgGreen)
+                conexionTPA.end()
 
                 const url_update_nomination = `${api_url}/daily_nominations`
                   let dataForm = new FormData()
@@ -727,6 +732,7 @@ async function getDailyNominations()
                   return null
                 }
                 console.log(`Actualizada a las nominación diaria IRGE: ${daily_nom.fecha} - subgrupo: ${subgrupoIRGE.clave}`.bgGreen)
+                conexionIRGE.end()
 
                 const url_update_nomination = `${api_url}/daily_nominations`
                 let dataForm = new FormData()
@@ -808,9 +814,33 @@ async function getProgramTPA()
                 return null
               }
               console.log(`Se insertó la programación en TPA: ${program.pg} - subgrupo: ${subgrupo.clave}`.bgGreen)
+              conexion.end()
+
+              const url_update_program = `${api_url}/programs`
+                let dataForm = new FormData()
+                dataForm.append('indentifier', program.ID)
+
+                let config = {
+                  method: 'post',
+                  url: url_update_program,
+                  headers: {
+                    ...dataForm.getHeaders()
+                  },
+                  data: dataForm
+                }
+
+                axios.request(config)
+                  .then( response => {
+                    console.log(`${response.message}`.bgGreen)
+                  })
+                  .catch((error) => {
+                    console.log(`Error: ${error}`.bgRed)
+                  })
             })
           })
         })
+      }  else {
+        console.log(`No hay programas nuevos en TPA`.yellow)
       }
     })
     .catch(error => {
@@ -826,7 +856,7 @@ async function getProgramTPA()
  */
 async function getProgramIRGE()
 {
-  const url_program = `${api_url}/programs?terminal=tpa`
+  const url_program = `${api_url}/programs?terminal=irge`
 
   await axios.get(url_program)
     .then(response => {
@@ -862,9 +892,32 @@ async function getProgramIRGE()
                 return null
               }
               console.log(`Se insertó la programación en IRGE: ${program.pg} - subgrupo: ${subgrupo.clave}`.bgGreen)
+              conexion.end()
+              const url_update_program = `${api_url}/programs`
+                let dataForm = new FormData()
+                dataForm.append('indentifier', program.ID)
+
+                let config = {
+                  method: 'post',
+                  url: url_update_program,
+                  headers: {
+                    ...dataForm.getHeaders()
+                  },
+                  data: dataForm
+                }
+
+                axios.request(config)
+                  .then( response => {
+                    console.log(`${response.message}`.bgGreen)
+                  })
+                  .catch((error) => {
+                    console.log(`Error: ${error}`.bgRed)
+                  })
             })
           })
         })
+      } else {
+        console.log(`No hay programas nuevos en IRGE`.yellow)
       }
     })
     .catch(error => {
