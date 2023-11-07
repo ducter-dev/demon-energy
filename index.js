@@ -30,7 +30,7 @@ const api_url = process.env.API_URL
  */
 async function monitorearEnergy() {
   console.log('🚀 Iniciando monitoreo de energy24-7'.bgBlue)
-  await getEquipmentsNewsIRGE()
+  await getNominations()
   //setTimeout(monitorearEnergy, 3000)
 }
 
@@ -436,12 +436,11 @@ async function getNominations ()
       if (data.length > 0) {
 
         data.forEach(nomination => {
-          console.log(`Registrando nominación mensual con id: ${nomination.ID}`.yellow)
+          console.log(`Nominación mensual con id: ${nomination.ID}`.blue)
 
           // Ver si tiene nominacion en TPA
-          
-          
           if (nomination.volumen_tpa > 0) {
+            console.log(`Registrando nominación mensual con id: ${nomination.ID}`.yellow)
             const conexionTPA = mysql.createConnection({
               host: dbHostTPA,
               user: dbUserTPA,
@@ -462,15 +461,15 @@ async function getNominations ()
                 const sql = `INSERT INTO nominacion_mensual(unidadNeg, anio, mes, nominacion)
                             VALUES('${subgrupoTPA.clave}', ${anioTPA}, '${monthTPA}', ${nomination.volumen_tpa})`
                             
-                console.log(`Agregado a las nominaciones mensuales TPA: ${nomination.ID} - subgrupo: ${subgrupoTPA.clave}`.bgGreen)
+                
                 conexionTPA.query(sql, (error, result) => {
                   if (error) {
                     console.error(`Error al realizar la inserción de la nominación mensual: ${error.stack}`.bgRed)
                     return null
                   }
-                  
+                  console.log(`Agregado a las nominaciones mensuales TPA: ${nomination.ID} - subgrupo: ${subgrupoTPA.clave}`.bgGreen)
                   nomination.nominacion_diaria.forEach(nomDay => {
-    
+                    
                     const sql2 = `INSERT INTO nominaciones(unidadNeg, nominacion, fecha_nominacion)
                                   VALUES('${subgrupoTPA.clave}', ${parseInt(nomDay.TPA)}, '${nomDay.fecha}')`
                                   
@@ -479,11 +478,52 @@ async function getNominations ()
                         console.error(`Error al realizar la inserción del nominación diaria: ${error.stack}`.bgRed)
                         return null
                       }
-                      console.log(`Agregado a las nominaciones diarias TPA: ${nomDay.fecha} - subgrupo: ${subgrupoTPA.clave}`.bgGreen)
+                      console.log(`Agregado a las nominaciones diarias TPA: ID: ${nomDay.ID_DIA} - ${nomDay.fecha} - subgrupo: ${subgrupoTPA.clave}`.bgGreen)
+                      // Enviara actualización del id de nominación
+                      const url_update_daily_nomination = `${api_url}/daily_nominations`
+                      let dataForm = new FormData()
+                      dataForm.append('indentifier', nomDay.ID_DIA)
+
+                      let configDaily = {
+                        method: 'post',
+                        url: url_update_daily_nomination,
+                        headers: {
+                          ...dataForm.getHeaders()
+                        },
+                        data: dataForm
+                      }
+                      axios.request(configDaily)
+                        .then( response => {
+                          console.log(`${response.message}`.bgGreen)
+                        })
+                        .catch((error) => {
+                          console.log(`Error: ${error}`.bgRed)
+                        })
                     })
                   })
     
-                  // Enviara actualización del id de subgrupo
+                  // Enviara actualización del id de nominación
+                  const url_update_nomination = `${api_url}/nominations`
+                  let dataForm = new FormData()
+                  dataForm.append('indentifier', nomination.ID)
+
+                  let config = {
+                    method: 'post',
+                    url: url_update_nomination,
+                    headers: {
+                      ...dataForm.getHeaders()
+                    },
+                    data: dataForm
+                  }
+
+                  axios.request(config)
+                    .then( response => {
+                      console.log(`${response.message}`.bgGreen)
+                    })
+                    .catch((error) => {
+                      console.log(`Error: ${error}`.bgRed)
+                    })
+
                 })
               })
             } else {
@@ -492,7 +532,7 @@ async function getNominations ()
           }
 
           if (nomination.volumen_dda > 0) {
-            // Ver si tiene nominacion en IRGE
+            console.log(`Registrando nominación mensual con id: ${nomination.ID}`.yellow)
             const conexionIRGE= mysql.createConnection({
               host: dbHostIRGE,
               user: dbUserIRGE,
@@ -530,13 +570,53 @@ async function getNominations ()
                         console.error(`Error al realizar la inserción del nominación diaria: ${error.stack}`.bgRed)
                         return null
                       }
-                      console.log(`Agregado a las nominaciones diarias IRGE: ${nomDay.fecha} - subgrupo: ${subgrupoIRGE.clave}`.bgGreen)
+                      console.log(`Agregado a las nominaciones diarias IRGE: ID: ${nomDay.ID_DIA} - ${nomDay.fecha} - subgrupo: ${subgrupoIRGE.clave}`.bgGreen)
+                      
+                      // Enviara actualización del id de nominación
+                      const url_update_daily_nomination = `${api_url}/daily_nominations`
+                      let dataForm = new FormData()
+                      dataForm.append('indentifier', nomDay.ID_DIA)
 
+                      let configDaily = {
+                        method: 'post',
+                        url: url_update_daily_nomination,
+                        headers: {
+                          ...dataForm.getHeaders()
+                        },
+                        data: dataForm
+                      }
+
+                      axios.request(configDaily)
+                        .then( response => {
+                          console.log(`${response.message}`.bgGreen)
+                        })
+                        .catch((error) => {
+                          console.log(`Error: ${error}`.bgRed)
+                        })
                     })
                   })
     
                   // Enviara actualización del id de subgrupo
-    
+                  const url_update_nomination = `${api_url}/nominations`
+                  let dataForm = new FormData()
+                  dataForm.append('indentifier', nomination.ID)
+
+                  let config = {
+                    method: 'post',
+                    url: url_update_nomination,
+                    headers: {
+                      ...dataForm.getHeaders()
+                    },
+                    data: dataForm
+                  }
+
+                  axios.request(config)
+                    .then( response => {
+                      console.log(`${response.message}`.bgGreen)
+                    })
+                    .catch((error) => {
+                      console.log(`Error: ${error}`.bgRed)
+                    })
                 })
               })
             } else {
