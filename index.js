@@ -30,7 +30,7 @@ const api_url = process.env.API_URL
  */
 async function monitorearEnergy() {
   console.log('🚀 Iniciando monitoreo de energy24-7'.bgBlue)
-  await getCustomersNews()
+  await getOperatorsNews()
   //setTimeout(monitorearEnergy, 3000)
 }
 
@@ -84,12 +84,13 @@ async function getCustomersNews() {
                 }
                 console.log(`Agregado al grupo de nominaciones: ${subgrupo.nombre}`.bgGreen)
               })
-              // Enviara actualización del id de subgrupo
 
               conexion.end()
+
+              // Enviara actualización del id de subgrupo
               const url_update_subgroup = `${api_url}/subgroups`
               let dataForm = new FormData()
-              data.append('indentifier', subgrupo.ID)
+              dataForm.append('indentifier', subgrupo.ID)
 
               let config = {
                 method: 'post',
@@ -102,7 +103,7 @@ async function getCustomersNews() {
 
               axios.request(config)
                 .then( response => {
-                  console.log(JSON.stringify(response.message).bgGreen)
+                  console.log(`${JSON.stringify(response.message)}`.bgGreen)
                 })
                 .catch((error) => {
                   console.log(`Error: ${error}`.bgRed)
@@ -112,7 +113,7 @@ async function getCustomersNews() {
         })
 
       } else {
-        console.log('No existen subgrupos nuevos.'.bgYellow)
+        console.log('No existen subgrupos nuevos.'.yellow)
       }
     })
     .catch(error => {
@@ -133,11 +134,10 @@ async function getCustomersNews() {
 async function getOperatorsNews() {
   // Obtener la información del api tpa
   const url_tpa = `${api_url}/operators?terminal=tpa` 
-  console.log(url_tpa.bgCyan)
+
   await axios.get(url_tpa)
     .then(response => {
       const { data } = response.data
-      console.log("🚀 ~ file: index.js:150 ~ getOperatorsNews ~ data:", data)
       
       if (data.length > 0) {
 
@@ -162,15 +162,37 @@ async function getOperatorsNews() {
                 console.error(`Error al realizar la inserción del operador: ${error.stack}`.bgRed)
               }
               console.log(`Ha sido registrado operador ${operator.nombre} en la terminal ${operator.terminal}`.bgGreen)
-              // Enviara actualización del id de operador
               conexion.end()
+
+              // Enviara actualización del id de operador
+              const url_update_operator = `${api_url}/operators`
+              let dataForm = new FormData()
+              dataForm.append('indentifier', operator.ID)
+              dataForm.append('terminal', 'tpa')
+
+              let config = {
+                method: 'post',
+                url: url_update_operator,
+                headers: {
+                  ...dataForm.getHeaders()
+                },
+                data: dataForm
+              }
+
+              axios.request(config)
+                .then( response => {
+                  console.log(`${JSON.stringify(response.message)}`.bgGreen)
+                })
+                .catch((error) => {
+                  console.log(`Error: ${error}`.bgRed)
+                })
             })
           })
         })
 
         // Actualizar Autotanques
       } else {
-        console.log('No existen operadores nuevos en TPA.'.bgYellow)
+        console.log('No existen operadores nuevos en TPA.'.yellow)
       }
     })
     .catch(error => {
@@ -180,17 +202,16 @@ async function getOperatorsNews() {
 
   // Obtener la información del api irge
   const url_irge = `${api_url}/operators?terminal=irge` 
-  console.log(url_irge.bgCyan)
+  
   await axios.get(url_irge)
   .then(response => {
     const { data } = response.data
-    console.log("🚀 ~ file: index.js:200 ~ getOperatorsNews ~ data:", data)
     
     if (data.length > 0) {
 
       data.forEach(operator => {
         console.log(`Registrando operator ${operator.nombre}`.bgGreen)
-        
+
         const conexion = mysql.createConnection({
           host: dbHostIRGE,
           user: dbUserIRGE,
@@ -211,22 +232,43 @@ async function getOperatorsNews() {
               return null
             }
             console.log(`Ha sido registrado operador ${operator.nombre} en la terminal ${operator.terminal}`.bgGreen)
-            // Enviara actualización del id de operador
             conexion.end()
+
+            // Enviara actualización del id de operador
+            const url_update_operator = `${api_url}/operators`
+            let dataForm = new FormData()
+            dataForm.append('indentifier', operator.ID)
+            dataForm.append('terminal', 'irge')
+
+            let config = {
+              method: 'post',
+              url: url_update_operator,
+              headers: {
+                ...dataForm.getHeaders()
+              },
+              data: dataForm
+            }
+
+            axios.request(config)
+              .then( response => {
+                console.log(`${JSON.stringify(response.message)}`.bgGreen)
+              })
+              .catch((error) => {
+                console.log(`Error: ${error}`.bgRed)
+              })
           })
         })
       })
       
       // Actualizar Autotanques
     } else {
-      console.log('No existen operadores nuevos en IRGE.'.bgYellow)
+      console.log('No existen operadores nuevos en IRGE.'.yellow)
     }
   })
   .catch(error => {
     console.log(`Error: ${error}`.bgRed)
   })
-  // Obtener autotanques nuevos
-  console.log('Buscar autanques'.bgYellow)
+  console.log('Buscar autanques'.yellow)
 }
 
 
@@ -277,7 +319,7 @@ async function getEquipmentsNews() {
 
         // Actualizar Autotanques
       } else {
-        console.log('No existen operadores nuevos en TPA.'.bgYellow)
+        console.log('No existen operadores nuevos en TPA.'.yellow)
       }
     })
     .catch(error => {
@@ -324,14 +366,14 @@ async function getEquipmentsNews() {
 
         // Actualizar Autotanques
       } else {
-        console.log('No existen operadores nuevos en IRGE.'.bgYellow)
+        console.log('No existen operadores nuevos en IRGE.'.yellow)
       }
     })
     .catch(error => {
       console.log(`Error: ${error}`.bgRed)
     })
   // Obtener autotanques nuevos
-  console.log('Buscar autanques'.bgYellow)
+  console.log('Buscar autanques'.yellow)
 }
 
 
@@ -352,7 +394,7 @@ async function getNominations ()
       if (data.length > 0) {
 
         data.forEach(nomination => {
-          console.log(`Registrando nominación mensual con id: ${nomination.ID}`.bgYellow)
+          console.log(`Registrando nominación mensual con id: ${nomination.ID}`.yellow)
 
           // Ver si tiene nominacion en TPA
           
@@ -461,7 +503,7 @@ async function getNominations ()
           }
         })
       } else {
-        console.log('No existen las nominaciones mensuales nuevas.'.bgYellow)
+        console.log('No existen las nominaciones mensuales nuevas.'.yellow)
       }
     })
     .catch(error => {
@@ -484,7 +526,7 @@ async function getDailyNominations()
 
       if (data.length > 0) {
         data.forEach(daily_nom => {
-          console.log(`Registrando nominación mensual con id: ${daily_nom.ID}`.bgYellow)
+          console.log(`Registrando nominación mensual con id: ${daily_nom.ID}`.yellow)
           
           // TPA
           const conexionTPA = mysql.createConnection({
@@ -551,7 +593,7 @@ async function getDailyNominations()
           }
         })
       } else {
-        console.log('No existen las nominaciones diarias actualizadas.'.bgYellow)
+        console.log('No existen las nominaciones diarias actualizadas.'.yellow)
       }
     })
     .catch(error => {
