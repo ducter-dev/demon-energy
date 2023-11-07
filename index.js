@@ -30,7 +30,7 @@ const api_url = process.env.API_URL
  */
 async function monitorearEnergy() {
   console.log('🚀 Iniciando monitoreo de energy24-7'.bgBlue)
-  await getOperatorsNews()
+  await getEquipmentsNewsIRGE()
   //setTimeout(monitorearEnergy, 3000)
 }
 
@@ -277,16 +277,15 @@ async function getOperatorsNews() {
  *
  * @return {Promise<void>} A Promise that resolves when the function completes.
  */
-async function getEquipmentsNews() {
+async function getEquipmentsNewsTPA() {
   // Obtener la información del api tpa
-  const url_tpa = `${api_url}/equipments?terminal=tpa` 
-  console.log(url_tpa.bgCyan)
+  const url_equipments = `${api_url}/equipments?terminal=tpa` 
+  console.log(url_equipments.bgCyan)
   const idBase = 2650
 
-  await axios.get(url_tpa)
+  await axios.get(url_equipments)
     .then(response => {
       const { data } = response.data
-      console.log("🚀 ~ file: index.js:253 ~ getEquipmentsNews ~ data:", data)
       
       if (data.length > 0) {
 
@@ -311,13 +310,34 @@ async function getEquipmentsNews() {
                 console.error(`Error al realizar la inserción del autotanque: ${error.stack}`.bgRed)
               }
               console.log(`Ha sido registrado autotanque ${equipment.pg} en la terminal TPA`.bgGreen)
-              // Enviara actualización del id de operador
               conexion.end()
+              
+              // Enviara actualización del id de operador
+              const url_update_equipment = `${api_url}/equipments`
+              let dataForm = new FormData()
+              dataForm.append('indentifier', equipment.ID)
+              dataForm.append('terminal', 'tpa')
+
+              let config = {
+                method: 'post',
+                url: url_update_equipment,
+                headers: {
+                  ...dataForm.getHeaders()
+                },
+                data: dataForm
+              }
+
+              axios.request(config)
+                .then( response => {
+                  console.log(`${JSON.stringify(response.message)}`.bgGreen)
+                })
+                .catch((error) => {
+                  console.log(`Error: ${error}`.bgRed)
+                })
             })
           })
         })
-
-        // Actualizar Autotanques
+        
       } else {
         console.log('No existen operadores nuevos en TPA.'.yellow)
       }
@@ -325,15 +345,17 @@ async function getEquipmentsNews() {
     .catch(error => {
       console.log(`Error: ${error}`.bgRed)
     })
+}
 
-
+async function getEquipmentsNewsIRGE() {
   // Obtener la información del api irge
-  const url_irge = `${api_url}/equipments?terminal=irge` 
-  console.log(url_irge.bgCyan)
-  await axios.get(url_irge)
+  const url_equipments = `${api_url}/equipments?terminal=irge` 
+  console.log(url_equipments.bgCyan)
+  const idBase = 2650
+  
+  await axios.get(url_equipments)
     .then(response => {
       const { data } = response.data
-      console.log("🚀 ~ file: index.js:253 ~ getEquipmentsNews ~ data:", data)
       
       if (data.length > 0) {
 
@@ -358,8 +380,30 @@ async function getEquipmentsNews() {
                 console.error(`Error al realizar la inserción del autotanque: ${error.stack}`.bgRed)
               }
               console.log(`Ha sido registrado autotanque ${equipment.pg} en la terminal IRGE`.bgGreen)
-              // Enviara actualización del id de operador
               conexion.end()
+
+              // Enviara actualización del id de operador
+              const url_update_equipment = `${api_url}/equipments`
+              let dataForm = new FormData()
+              dataForm.append('indentifier', equipment.ID)
+              dataForm.append('terminal', 'irge')
+
+              let config = {
+                method: 'post',
+                url: url_update_equipment,
+                headers: {
+                  ...dataForm.getHeaders()
+                },
+                data: dataForm
+              }
+
+              axios.request(config)
+                .then( response => {
+                  console.log(`${JSON.stringify(response.message)}`.bgGreen)
+                })
+                .catch((error) => {
+                  console.log(`Error: ${error}`.bgRed)
+                })
             })
           })
         })
@@ -372,8 +416,6 @@ async function getEquipmentsNews() {
     .catch(error => {
       console.log(`Error: ${error}`.bgRed)
     })
-  // Obtener autotanques nuevos
-  console.log('Buscar autanques'.yellow)
 }
 
 
