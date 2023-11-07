@@ -3,6 +3,7 @@ const mysql = require('mysql')
 const axios = require('axios')
 var colors = require('colors')
 const { format, subDays } = require('date-fns')
+const FormData = require('form-data')
 
 colors.enable()
 
@@ -29,7 +30,7 @@ const api_url = process.env.API_URL
  */
 async function monitorearEnergy() {
   console.log('🚀 Iniciando monitoreo de energy24-7'.bgBlue)
-  await getProgramIRGE()
+  await getCustomersNews()
   //setTimeout(monitorearEnergy, 3000)
 }
 
@@ -49,8 +50,9 @@ async function getCustomersNews() {
       
       if (data.length > 0) {
 
-        data.forEach(subgrupo => {
+        data.forEach(async (subgrupo) => {
           console.log(`Registrando subgrupo ${subgrupo.nombre}`.bgGreen)
+
           const conexion = mysql.createConnection({
             host: subgrupo.terminal === 'TPA' ? dbHostTPA : dbHostIRGE,
             user: subgrupo.terminal === 'TPA' ? dbUserTPA : dbUserIRGE,
@@ -72,9 +74,9 @@ async function getCustomersNews() {
                 return null
               }
               console.log(`Creado en subgrupos: ${subgrupo.nombre}`.bgGreen)
-              console.log(`Ha sido registrado subgrupo: ${result}`.bgGreen)
               const sql2 = `INSERT INTO nominaciones_orden(subgrupo, orden, color, textColor, label, button)
                             VALUES('${subgrupo.clave}', 0, '#D1D1D1', 'black','black','#B3AEAE')`
+              
               conexion.query(sql2, (error, result) => {
                 if (error) {
                   console.error(`Error al realizar la inserción del subgrupo: ${error.stack}`.bgRed)
@@ -83,11 +85,32 @@ async function getCustomersNews() {
                 console.log(`Agregado al grupo de nominaciones: ${subgrupo.nombre}`.bgGreen)
               })
               // Enviara actualización del id de subgrupo
+
               conexion.end()
+              const url_update_subgroup = `${api_url}/subgroups`
+              let dataForm = new FormData()
+              data.append('indentifier', subgrupo.ID)
+
+              let config = {
+                method: 'post',
+                url: url_update_subgroup,
+                headers: {
+                  ...dataForm.getHeaders()
+                },
+                data: dataForm
+              }
+
+              axios.request(config)
+                .then( response => {
+                  console.log(JSON.stringify(response.message).bgGreen)
+                })
+                .catch((error) => {
+                  console.log(`Error: ${error}`.bgRed)
+                })
             })
           })
-
         })
+
       } else {
         console.log('No existen subgrupos nuevos.'.bgYellow)
       }
