@@ -16,6 +16,8 @@
     "colors": "^1.4.0",
     "date-fns": "^2.30.0",
     "dotenv": "^16.3.1",
-    "mysql": "^2.18.1"
+    "mysql": "^2.18.1",
+    "winston": "^3.11.0",
+    "winston-daily-rotate-file": "^4.7.1"
   }
 }

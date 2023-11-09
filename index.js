@@ -2,8 +2,37 @@ require('dotenv').config()
 const mysql = require('mysql')
 const axios = require('axios')
 var colors = require('colors')
-const { format, subDays } = require('date-fns')
+const { subDays } = require('date-fns')
+const format_date = require('date-fns/format')
 const FormData = require('form-data')
+const winston = require('winston')
+const { format } = require('winston')
+const DailyRotateFile = require('winston-daily-rotate-file')
+
+// Configura el transportador para el registro de información diario
+const infoTransport = new DailyRotateFile({
+  filename: 'info-%DATE%.log',
+  datePattern: 'YYYY-MM-DD',
+  level: 'info',
+  dirname: './logs'
+})
+
+// Configura el transportador para el registro de errores diario
+const errorTransport = new DailyRotateFile({
+  filename: 'error-%DATE%.log',
+  datePattern: 'YYYY-MM-DD',
+  level: 'error',
+  dirname: './logs'
+})
+
+// Crea un registrador de Winston
+const logger = winston.createLogger({
+  format: format.combine(
+    format.timestamp(),
+    format.json()
+  ),
+  transports: [infoTransport, errorTransport]
+})
 
 colors.enable()
 
@@ -30,8 +59,9 @@ const api_url = process.env.API_URL
  */
 async function monitorearEnergy() {
   console.log('🚀 Iniciando monitoreo de energy24-7'.bgBlue)
-  await getProgramTPA()
-  //setTimeout(monitorearEnergy, 3000)
+  logger.info('🚀 Iniciando monitoreo de energy24-7')
+  await getCustomersNews()
+  setTimeout(monitorearEnergy, 60000)
 }
 
 /**
@@ -63,6 +93,7 @@ async function getCustomersNews() {
           conexion.connect((error) => {
             if (error) {
               console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+              logger.error(`Error al conectar a la base de datos:  ${error.stack}`)
               return null
             }
             const idCompania = subgrupo.compania == 1 ? subgrupo.compania : 3
@@ -71,6 +102,7 @@ async function getCustomersNews() {
             conexion.query(sql, (error, result) => {
               if (error) {
                 console.error(`Error al realizar la inserción del subgrupo: ${error.stack}`.bgRed)
+                logger.error(`Error al realizar la inserción del subgrupo: ${error.stack}`)
                 return null
               }
               console.log(`Creado en subgrupos: ${subgrupo.nombre}`.bgGreen)
@@ -80,9 +112,11 @@ async function getCustomersNews() {
               conexion.query(sql2, (error, result) => {
                 if (error) {
                   console.error(`Error al realizar la inserción del subgrupo: ${error.stack}`.bgRed)
+                  logger.error(`Error al realizar la inserción del subgrupo: ${error.stack}`)
                   return null
                 }
-                console.log(`Agregado al grupo de nominaciones: ${subgrupo.nombre}`.bgGreen)
+                console.log(`Subgrupo agregado al grupo de nominaciones: ${subgrupo.nombre}`.bgGreen)
+                logger.info(`Subgrupo agregado al grupo de nominaciones: ${subgrupo.nombre}`)
               })
 
               conexion.end()
@@ -103,10 +137,12 @@ async function getCustomersNews() {
 
               axios.request(config)
                 .then( response => {
-                  console.log(`${JSON.stringify(response.message)}`.bgGreen)
+                  console.log(`${response.data.message}`.bgGreen)
+                  logger.info(`${response.data.message}`)
                 })
                 .catch((error) => {
                   console.log(`Error: ${error}`.bgRed)
+                  logger.error(`Error: ${error}`)
                 })
             })
           })
@@ -118,10 +154,11 @@ async function getCustomersNews() {
     })
     .catch(error => {
       console.log(`Error: ${error}`.bgRed)
+      logger.error(`Error: ${error}`)
     })
 
   // Obtener operadores nuevos
-  //getOperatorsNews()
+  await getOperatorsNews()
 
 }
 
@@ -142,7 +179,7 @@ async function getOperatorsNews() {
       if (data.length > 0) {
 
         data.forEach(operator => {
-          console.log(`Registrando operator ${operator.nombre}`.bgGreen)
+          console.log(`Registrando operator ${operator.nombre} en TPA`.bgGreen)
           
           const conexion = mysql.createConnection({
             host: dbHostTPA,
@@ -154,14 +191,18 @@ async function getOperatorsNews() {
           conexion.connect((error) => {
             if (error) {
               console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+              logger.error(`Error al conectar a la base de datos:  ${error.stack}`)
             }
             const sql = `INSERT INTO operador(id_operador, nombre_operador, grupo, telefonoOperador, identificacion)
                         VALUES('${operator.ID}', '${operator.nombre}', 'Nieto', '', '${operator.clave_elector}')`
             conexion.query(sql, (error, result) => {
               if (error) {
                 console.error(`Error al realizar la inserción del operador: ${error.stack}`.bgRed)
+                logger.error(`Error al realizar la inserción del operador: ${error.stack}`)
+                return null
               }
               console.log(`Ha sido registrado operador ${operator.nombre} en la terminal ${operator.terminal}`.bgGreen)
+              logger.info(`Ha sido registrado operador ${operator.nombre} en la terminal ${operator.terminal}`)
               conexion.end()
 
               // Enviara actualización del id de operador
@@ -181,10 +222,12 @@ async function getOperatorsNews() {
 
               axios.request(config)
                 .then( response => {
-                  console.log(`${JSON.stringify(response.message)}`.bgGreen)
+                  console.log(`${response.data.message}`.bgGreen)
+                  logger.info(`${response.data.message}`)
                 })
                 .catch((error) => {
                   console.log(`Error: ${error}`.bgRed)
+                  logger.error(`Error: ${error}`)
                 })
             })
           })
@@ -197,6 +240,7 @@ async function getOperatorsNews() {
     })
     .catch(error => {
       console.log(`Error: ${error}`.bgRed)
+      logger.error(`Error: ${error}`)
     })
 
 
@@ -210,7 +254,7 @@ async function getOperatorsNews() {
     if (data.length > 0) {
 
       data.forEach(operator => {
-        console.log(`Registrando operator ${operator.nombre}`.bgGreen)
+        console.log(`Registrando operator ${operator.nombre} en IRGE`.bgGreen)
 
         const conexion = mysql.createConnection({
           host: dbHostIRGE,
@@ -222,6 +266,7 @@ async function getOperatorsNews() {
         conexion.connect((error) => {
           if (error) {
             console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+            logger.error(`Error al conectar a la base de datos:  ${error.stack}`)
             return null
           }
           const sql = `INSERT INTO operador(id_operador, nombre_operador, grupo, telefonoOperador, identificacion)
@@ -229,9 +274,11 @@ async function getOperatorsNews() {
           conexion.query(sql, (error, result) => {
             if (error) {
               console.error(`Error al realizar la inserción del operador: ${error.stack}`.bgRed)
+              logger.error(`Error al realizar la inserción del operador: ${error.stack}`)
               return null
             }
             console.log(`Ha sido registrado operador ${operator.nombre} en la terminal ${operator.terminal}`.bgGreen)
+            logger.info(`Ha sido registrado operador ${operator.nombre} en la terminal ${operator.terminal}`)
             conexion.end()
 
             // Enviara actualización del id de operador
@@ -251,10 +298,12 @@ async function getOperatorsNews() {
 
             axios.request(config)
               .then( response => {
-                console.log(`${JSON.stringify(response.message)}`.bgGreen)
+                console.log(`${response.data.message}`.bgGreen)
+                logger.info(`${response.data.message}`)
               })
               .catch((error) => {
                 console.log(`Error: ${error}`.bgRed)
+                logger.error(`Error: ${error}`)
               })
           })
         })
@@ -267,8 +316,11 @@ async function getOperatorsNews() {
   })
   .catch(error => {
     console.log(`Error: ${error}`.bgRed)
+    logger.error(`Error: ${error}`.bgRed)
   })
-  console.log('Buscar autanques'.yellow)
+  
+
+  await getEquipmentsNewsTPA()
 }
 
 
@@ -280,7 +332,6 @@ async function getOperatorsNews() {
 async function getEquipmentsNewsTPA() {
   // Obtener la información del api tpa
   const url_equipments = `${api_url}/equipments?terminal=tpa` 
-  console.log(url_equipments.bgCyan)
   const idBase = 2650
 
   await axios.get(url_equipments)
@@ -290,8 +341,7 @@ async function getEquipmentsNewsTPA() {
       if (data.length > 0) {
 
         data.forEach(equipment => {
-          console.log(`Registrando autotanque ${equipment.nombre}`.bgGreen)
-          
+          console.log(`Registrando autotanque ${equipment.nombre} en TPA`.bgGreen)
           const conexion = mysql.createConnection({
             host: dbHostTPA,
             user: dbUserTPA,
@@ -302,14 +352,17 @@ async function getEquipmentsNewsTPA() {
           conexion.connect((error) => {
             if (error) {
               console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+              logger.error(`Error al conectar a la base de datos:  ${error.stack}`)
             }
             const sql = `INSERT INTO autotanques(SbiID, pg, capacidad, placa, embarque, fechaMod, idCRE)
                         VALUES('${idBase + equipment.ID}', '${equipment.pg}','${equipment.capacidad}', '${equipment.placa}', 0, '${equipment.fecha_creacion}', '${equipment.idCRE}')`
             conexion.query(sql, (error, result) => {
               if (error) {
                 console.error(`Error al realizar la inserción del autotanque: ${error.stack}`.bgRed)
+                logger.error(`Error al realizar la inserción del autotanque: ${error.stack}`)
               }
               console.log(`Ha sido registrado autotanque ${equipment.pg} en la terminal TPA`.bgGreen)
+              logger.info(`Ha sido registrado autotanque ${equipment.pg} en la terminal TPA`)
               conexion.end()
               
               // Enviara actualización del id de operador
@@ -329,10 +382,12 @@ async function getEquipmentsNewsTPA() {
 
               axios.request(config)
                 .then( response => {
-                  console.log(`${JSON.stringify(response.message)}`.bgGreen)
+                  console.log(`${response.data.message}`.bgGreen)
+                  logger.info(`${response.data.message}`)
                 })
                 .catch((error) => {
                   console.log(`Error: ${error}`.bgRed)
+                  logger.error(`Error: ${error}`)
                 })
             })
           })
@@ -340,18 +395,19 @@ async function getEquipmentsNewsTPA() {
 
         
       } else {
-        console.log('No existen operadores nuevos en TPA.'.yellow)
+        console.log('No existen autotanques nuevos en TPA.'.yellow)
       }
     })
     .catch(error => {
       console.log(`Error: ${error}`.bgRed)
+      logger.error(`Error: ${error}`)
     })
+  await getEquipmentsNewsIRGE()
 }
 
 async function getEquipmentsNewsIRGE() {
   // Obtener la información del api irge
   const url_equipments = `${api_url}/equipments?terminal=irge` 
-  console.log(url_equipments.bgCyan)
   const idBase = 2650
   
   await axios.get(url_equipments)
@@ -373,14 +429,17 @@ async function getEquipmentsNewsIRGE() {
           conexion.connect((error) => {
             if (error) {
               console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+              logger.error(`Error al conectar a la base de datos:  ${error.stack}`)
             }
             const sql = `INSERT INTO autotanques(SbiID, pg, capacidad, placa, embarque, fechaMod, idCRE)
                         VALUES('${idBase + equipment.ID}', '${equipment.pg}','${equipment.capacidad}', '${equipment.placa}', 0, '${equipment.fecha_creacion}', '${equipment.idCRE}')`
             conexion.query(sql, (error, result) => {
               if (error) {
                 console.error(`Error al realizar la inserción del autotanque: ${error.stack}`.bgRed)
+                logger.error(`Error al realizar la inserción del autotanque: ${error.stack}`)
               }
               console.log(`Ha sido registrado autotanque ${equipment.pg} en la terminal IRGE`.bgGreen)
+              logger.error(`Ha sido registrado autotanque ${equipment.pg} en la terminal IRGE`)
               conexion.end()
 
               // Enviara actualización del id de operador
@@ -400,10 +459,12 @@ async function getEquipmentsNewsIRGE() {
 
               axios.request(config)
                 .then( response => {
-                  console.log(`${JSON.stringify(response.message)}`.bgGreen)
+                  console.log(`${response.data.message}`.bgGreen)
+                  logger.info(`${response.data.message}`)
                 })
                 .catch((error) => {
                   console.log(`Error: ${error}`.bgRed)
+                  logger.error(`Error: ${error}`)
                 })
             })
           })
@@ -411,12 +472,15 @@ async function getEquipmentsNewsIRGE() {
 
         // Actualizar Autotanques
       } else {
-        console.log('No existen operadores nuevos en IRGE.'.yellow)
+        console.log('No existen autotanques nuevos en IRGE.'.yellow)
       }
     })
     .catch(error => {
       console.log(`Error: ${error}`.bgRed)
+      logger.error(`Error: ${error}`)
     })
+
+  await getNominations()
 }
 
 
@@ -437,11 +501,10 @@ async function getNominations ()
       if (data.length > 0) {
 
         data.forEach(nomination => {
-          console.log(`Nominación mensual con id: ${nomination.ID}`.blue)
 
           // Ver si tiene nominacion en TPA
           if (nomination.volumen_tpa > 0) {
-            console.log(`Registrando nominación mensual con id: ${nomination.ID}`.yellow)
+            console.log(`Registrando nominación mensual en TPA con id: ${nomination.ID}`.yellow)
             const conexionTPA = mysql.createConnection({
               host: dbHostTPA,
               user: dbUserTPA,
@@ -456,31 +519,38 @@ async function getNominations ()
               conexionTPA.connect((error) => {
                 if (error) {
                   console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+                  logger.error(`Error al conectar a la base de datos:  ${error.stack}`)
                   return null
                 }
                 
                 const sql = `INSERT INTO nominacion_mensual(unidadNeg, anio, mes, nominacion)
                             VALUES('${subgrupoTPA.clave}', ${anioTPA}, '${monthTPA}', ${nomination.volumen_tpa})`
+                console.log("🚀 ~ file: index.js:527 ~ conexionTPA.connect ~ sql:", sql)
                             
                 
                 conexionTPA.query(sql, (error, result) => {
                   if (error) {
                     console.error(`Error al realizar la inserción de la nominación mensual: ${error.stack}`.bgRed)
+                    logger.error(`Error al realizar la inserción de la nominación mensual: ${error.stack}`)
                     return null
                   }
                   console.log(`Agregado a las nominaciones mensuales TPA: ${nomination.ID} - subgrupo: ${subgrupoTPA.clave}`.bgGreen)
+                  logger.info(`Agregado a las nominaciones mensuales TPA: ${nomination.ID} - subgrupo: ${subgrupoTPA.clave}`)
                   nomination.nominacion_diaria.forEach(nomDay => {
                     
                     const sql2 = `INSERT INTO nominaciones(unidadNeg, nominacion, fecha_nominacion)
                                   VALUES('${subgrupoTPA.clave}', ${parseInt(nomDay.TPA)}, '${nomDay.fecha}')`
+                    console.log("🚀 ~ file: index.js:544 ~ conexionTPA.query ~ sql2:", sql2)
                                   
                     conexionTPA.query(sql2, (error, result) => {
                       if (error) {
                         console.error(`Error al realizar la inserción del nominación diaria: ${error.stack}`.bgRed)
+                        logger.error(`Error al realizar la inserción del nominación diaria: ${error.stack}`)
                         return null
                       }
                       console.log(`Agregado a las nominaciones diarias TPA: ID: ${nomDay.ID_DIA} - ${nomDay.fecha} - subgrupo: ${subgrupoTPA.clave}`.bgGreen)
-                      conexionTPA.end()
+                      logger.info(`Agregado a las nominaciones diarias TPA: ID: ${nomDay.ID_DIA} - ${nomDay.fecha} - subgrupo: ${subgrupoTPA.clave}`)
+                      
 
                       // Enviara actualización del id de nominación
                       const url_update_daily_nomination = `${api_url}/daily_nominations`
@@ -497,14 +567,17 @@ async function getNominations ()
                       }
                       axios.request(configDaily)
                         .then( response => {
-                          console.log(`${response.message}`.bgGreen)
+                          console.log(`${response.data.message}`.bgGreen)
+                          logger.info(`${response.data.message}`)
                         })
                         .catch((error) => {
                           console.log(`Error: ${error}`.bgRed)
+                          logger.error(`Error: ${error}`)
                         })
                     })
+
                   })
-    
+                  conexionTPA.end()
                   // Enviara actualización del id de nominación
                   const url_update_nomination = `${api_url}/nominations`
                   let dataForm = new FormData()
@@ -521,21 +594,24 @@ async function getNominations ()
 
                   axios.request(config)
                     .then( response => {
-                      console.log(`${response.message}`.bgGreen)
+                      console.log(`${response.data.message}`.bgGreen)
+                      logger.info(`${response.data.message}`)
                     })
                     .catch((error) => {
                       console.log(`Error: ${error}`.bgRed)
+                      logger.error(`Error: ${error}`)
                     })
-
                 })
+                conexionTPA.end()
               })
             } else {
               console.log('Error: subgrupo vacío en TPA.'.bgRed)
+              logger.error('Error: subgrupo vacío en TPA.')
             }
           }
 
           if (nomination.volumen_dda > 0) {
-            console.log(`Registrando nominación mensual con id: ${nomination.ID}`.yellow)
+            console.log(`Registrando nominación mensual en IRGE con id: ${nomination.ID}`.yellow)
             const conexionIRGE= mysql.createConnection({
               host: dbHostIRGE,
               user: dbUserIRGE,
@@ -550,16 +626,20 @@ async function getNominations ()
               conexionIRGE.connect((error) => {
                 if (error) {
                   console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+                  logger.error(`Error al conectar a la base de datos:  ${error.stack}`)
                   return null
                 }
                 
                 const sql = `INSERT INTO nominacion_mensual(unidadNeg, anio, mes, nominacion)
                             VALUES('${subgrupoIRGE.clave}', ${anioIRGE}, '${monthIRGE}', ${nomination.volumen_dda})`
-    
+
+                console.log("🚀 ~ file: index.js:633 ~ conexionIRGE.connect ~ sql:", sql)
                 console.log(`Agregado a las nominaciones mensuales IRGE: ${nomination.ID} - subgrupo: ${subgrupoIRGE.clave}`.bgGreen)
+                logger.info(`Agregado a las nominaciones mensuales IRGE: ${nomination.ID} - subgrupo: ${subgrupoIRGE.clave}`)
                 conexionIRGE.query(sql, (error, result) => {
                   if (error) {
                     console.error(`Error al realizar la inserción de la nominación: ${error.stack}`.bgRed)
+                    logger.error(`Error al realizar la inserción de la nominación: ${error.stack}`)
                     return null
                   }
                   
@@ -567,14 +647,16 @@ async function getNominations ()
     
                     const sql2 = `INSERT INTO nominaciones(unidadNeg, nominacion, fecha_nominacion)
                                   VALUES('${subgrupoIRGE.clave}', ${parseInt(nomDay.DDA)}, '${nomDay.fecha}')`
+                    console.log(`🚀 ~ file: index.js:642 ~ conexionIRGE.query ~ sql2: ${sql2}`.cyan)
                                   
                     conexionIRGE.query(sql2, (error, result) => {
                       if (error) {
                         console.error(`Error al realizar la inserción del nominación diaria: ${error.stack}`.bgRed)
+                        logger.error(`Error al realizar la inserción del nominación diaria: ${error.stack}`)
                         return null
                       }
                       console.log(`Agregado a las nominaciones diarias IRGE: ID: ${nomDay.ID_DIA} - ${nomDay.fecha} - subgrupo: ${subgrupoIRGE.clave}`.bgGreen)
-                      conexionIRGE.end()
+                      logger.info(`Agregado a las nominaciones diarias IRGE: ID: ${nomDay.ID_DIA} - ${nomDay.fecha} - subgrupo: ${subgrupoIRGE.clave}`)
 
                       // Enviara actualización del id de nominación
                       const url_update_daily_nomination = `${api_url}/daily_nominations`
@@ -592,10 +674,12 @@ async function getNominations ()
 
                       axios.request(configDaily)
                         .then( response => {
-                          console.log(`${response.message}`.bgGreen)
+                          console.log(`${response.data.message}`.bgGreen)
+                          logger.info(`${response.data.message}`)
                         })
                         .catch((error) => {
                           console.log(`Error: ${error}`.bgRed)
+                          logger.error(`Error: ${error}`)
                         })
                     })
                   })
@@ -616,25 +700,32 @@ async function getNominations ()
 
                   axios.request(config)
                     .then( response => {
-                      console.log(`${response.message}`.bgGreen)
+                      console.log(`${response.data.message}`.bgGreen)
+                      logger.info(`${response.data.message}`)
                     })
                     .catch((error) => {
                       console.log(`Error: ${error}`.bgRed)
+                      logger.error(`Error: ${error}`)
                     })
+                    conexionIRGE.end()
                 })
               })
             } else {
               console.log('Error: subgrupo vacío en IRGE.'.bgRed)
+              logger.error('Error: subgrupo vacío en IRGE.')
             }
           }
         })
+        
       } else {
         console.log('No existen las nominaciones mensuales nuevas.'.yellow)
       }
     })
     .catch(error => {
       console.log(`Error: ${error}`.bgRed)
+      logger.error(`Error: ${error}`)
     })
+  await getDailyNominations()
 }
 
 /**
@@ -668,6 +759,7 @@ async function getDailyNominations()
             conexionTPA.connect((error) => {
               if (error) {
                 console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+                logger.error(`Error al conectar a la base de datos:  ${error.stack}`)
                 return null
               }
 
@@ -676,9 +768,11 @@ async function getDailyNominations()
               conexionTPA.query(sql, (error, result) => {
                 if (error) {
                   console.error(`Error al realizar la inserción del nominación diaria: ${error.stack}`.bgRed)
+                  logger.error(`Error al realizar la inserción del nominación diaria: ${error.stack}`)
                   return null
                 }
                 console.log(`Actualizada a las nominación diaria TPA: ${daily_nom.fecha} - subgrupo: ${subgrupoTPA.clave}`.bgGreen)
+                logger.info(`Actualizada a las nominación diaria TPA: ${daily_nom.fecha} - subgrupo: ${subgrupoTPA.clave}`)
                 conexionTPA.end()
 
                 const url_update_nomination = `${api_url}/daily_nominations`
@@ -696,15 +790,18 @@ async function getDailyNominations()
 
                   axios.request(config)
                     .then( response => {
-                      console.log(`${response.message}`.bgGreen)
+                      console.log(`${response.data.message}`.bgGreen)
+                      logger.info(`${response.data.message}`)
                     })
                     .catch((error) => {
                       console.log(`Error: ${error}`.bgRed)
+                      logger.error(`Error: ${error}`)
                     })
               })
             })
           }  else {
-            console.log('Error: subgrupo vacío en TPA.'.bgRed)
+            console.log('Error: Nominaciones Diarias subgrupo vacío en TPA.'.bgRed)
+            logger.error('Error: Nominaciones Diarias subgrupo vacío en TPA.')
           }
 
           // IRGE
@@ -715,12 +812,13 @@ async function getDailyNominations()
             database: dbDatabaseIRGE,
           })
 
-          const subgrupoIRGE = daily_nom.subgrupos.find( s => s.terminal === 'TPA')
+          const subgrupoIRGE = daily_nom.subgrupos.find( s => s.terminal === 'DDA')
 
           if (subgrupoIRGE) {
             conexionIRGE.connect((error) => {
               if (error) {
                 console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+                logger.error(`Error al conectar a la base de datos:  ${error.stack}`)
                 return null
               }
 
@@ -729,9 +827,11 @@ async function getDailyNominations()
               conexionIRGE.query(sql, (error, result) => {
                 if (error) {
                   console.error(`Error al realizar la inserción del nominación diaria: ${error.stack}`.bgRed)
+                  logger.error(`Error al realizar la inserción del nominación diaria: ${error.stack}`)
                   return null
                 }
                 console.log(`Actualizada a las nominación diaria IRGE: ${daily_nom.fecha} - subgrupo: ${subgrupoIRGE.clave}`.bgGreen)
+                logger.info(`Actualizada a las nominación diaria IRGE: ${daily_nom.fecha} - subgrupo: ${subgrupoIRGE.clave}`)
                 conexionIRGE.end()
 
                 const url_update_nomination = `${api_url}/daily_nominations`
@@ -749,15 +849,18 @@ async function getDailyNominations()
 
                 axios.request(config)
                   .then( response => {
-                    console.log(`${response.message}`.bgGreen)
+                    console.log(`${response.data.message}`.bgGreen)
+                    logger.info(`${response.data.message}`)
                   })
                   .catch((error) => {
                     console.log(`Error: ${error}`.bgRed)
+                    logger.error(`Error: ${error}`)
                   })
               })
             })
           }  else {
             console.log('Error: subgrupo vacío en IRGE.'.bgRed)
+            logger.error('Error: subgrupo vacío en IRGE.')
           }
         })
       } else {
@@ -766,8 +869,10 @@ async function getDailyNominations()
     })
     .catch(error => {
       console.log(`Error: ${error}`.bgRed)
+      logger.error(`Error: ${error}`)
     })
 
+  await getProgramTPA()
 }
 
 
@@ -785,36 +890,40 @@ async function getProgramTPA()
       const { data } = response.data
       
       if (data.length > 0) {
-        const conexion = mysql.createConnection({
-          host: dbHostTPA,
-          user: dbUserTPA,
-          password: dbPasswordTPA,
-          database: dbDatabaseTPA,
-        })
-
+        
         data.forEach(program => {
+          const conexion = mysql.createConnection({
+            host: dbHostTPA,
+            user: dbUserTPA,
+            password: dbPasswordTPA,
+            database: dbDatabaseTPA,
+          })
 
           const fecha = new Date()
-          const fechaFormateada = format(fecha, 'yyyy-MM-dd HH:mm:ss')
+          const fechaFormateada = format_date(fecha, 'yyyy-MM-dd HH:mm:ss')
           const fechaReporte = getDateReport(fechaFormateada)
           const subgrupo = program.subgrupos.find( s => s.terminal === 'TPA')
 
           conexion.connect((error) => {
             if (error) {
               console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+              logger.error(`Error al conectar a la base de datos:  ${error.stack}`)
               return null
             }
   
             const sql = `INSERT INTO accesos (claveAcceso, fechaLlegada, embarque, estado, presion, fechaReporte, pg, idUser_reg, usuario_reg, subgrupo, programa, id_programa_energy)
                         VALUES ('${program.clave}', '${fechaFormateada}', 0, 1, 0, '${fechaReporte}', '${program.pg}', '${id_user_reg}', '${user_reg}', '${subgrupo.clave}', 1, ${program.ID})`
+            console.log("🚀 ~ file: index.js:912 ~ conexion.connect ~ sql:", sql)
                                 
             conexion.query(sql, (error, result) => {
               if (error) {
                 console.error(`Error al realizar la inserción del programa diaria: ${error.stack}`.bgRed)
+                logger.error(`Error al realizar la inserción del programa diaria: ${error.stack}`)
                 return null
               }
               console.log(`Se insertó la programación en TPA: ${program.pg} - subgrupo: ${subgrupo.clave}`.bgGreen)
-              conexion.end()
+              logger.info(`Se insertó la programación en TPA: ${program.pg} - subgrupo: ${subgrupo.clave}`)
+              
 
               const url_update_program = `${api_url}/programs`
                 let dataForm = new FormData()
@@ -831,12 +940,15 @@ async function getProgramTPA()
 
                 axios.request(config)
                   .then( response => {
-                    console.log(`${response.message}`.bgGreen)
+                    console.log(`${response.data.message}`.bgGreen)
+                    logger.info(`${response.data.message}`)
                   })
                   .catch((error) => {
                     console.log(`Error: ${error}`.bgRed)
+                    logger.error(`Error: ${error}`)
                   })
             })
+            conexion.end()
           })
         })
       }  else {
@@ -845,7 +957,9 @@ async function getProgramTPA()
     })
     .catch(error => {
       console.log(`Error: ${error}`.bgRed)
+      logger.error(`Error: ${error}`)
     })
+  await getProgramIRGE()
 }
 
 
@@ -862,66 +976,76 @@ async function getProgramIRGE()
     .then(response => {
       const { data } = response.data
       
+      
       if (data.length > 0) {
-        const conexion = mysql.createConnection({
-          host: dbHostIRGE,
-          user: dbUserIRGE,
-          password: dbPasswordIRGE,
-          database: dbDatabaseIRGE,
-        })
-
+        
         data.forEach(program => {
+          const conexion = mysql.createConnection({
+            host: dbHostIRGE,
+            user: dbUserIRGE,
+            password: dbPasswordIRGE,
+            database: dbDatabaseIRGE,
+          })
 
           const fecha = new Date()
-          const fechaFormateada = format(fecha, 'yyyy-MM-dd HH:mm:ss')
+          const fechaFormateada = format_date(fecha, 'yyyy-MM-dd HH:mm:ss')
           const fechaReporte = getDateReport(fechaFormateada)
           const subgrupo = program.subgrupos.find( s => s.terminal === 'DDA')
 
           conexion.connect((error) => {
             if (error) {
               console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+              logger.error(`Error al conectar a la base de datos:  ${error.stack}`)
               return null
             }
   
             const sql = `INSERT INTO accesos (claveAcceso, fechaLlegada, embarque, estado, presion, fechaReporte, pg, idUser_reg, usuario_reg, subgrupo, programa, id_programa_energy)
                         VALUES ('${program.clave}', '${fechaFormateada}', 0, 1, 0, '${fechaReporte}', '${program.pg}', '${id_user_reg}', '${user_reg}', '${subgrupo.clave}', 1, ${program.ID})`
+            console.log("🚀 ~ file: index.js:998 ~ conexion.connect ~ sql:", sql)
                                 
             conexion.query(sql, (error, result) => {
               if (error) {
                 console.error(`Error al realizar la inserción del programa diaria: ${error.stack}`.bgRed)
+                logger.error(`Error al realizar la inserción del programa diaria: ${error.stack}`)
                 return null
               }
               console.log(`Se insertó la programación en IRGE: ${program.pg} - subgrupo: ${subgrupo.clave}`.bgGreen)
-              conexion.end()
+              logger.info(`Se insertó la programación en IRGE: ${program.pg} - subgrupo: ${subgrupo.clave}`)
+              
               const url_update_program = `${api_url}/programs`
-                let dataForm = new FormData()
-                dataForm.append('indentifier', program.ID)
+              let dataForm = new FormData()
+              dataForm.append('indentifier', program.ID)
 
-                let config = {
-                  method: 'post',
-                  url: url_update_program,
-                  headers: {
-                    ...dataForm.getHeaders()
-                  },
-                  data: dataForm
-                }
+              let config = {
+                method: 'post',
+                url: url_update_program,
+                headers: {
+                  ...dataForm.getHeaders()
+                },
+                data: dataForm
+              }
 
-                axios.request(config)
-                  .then( response => {
-                    console.log(`${response.message}`.bgGreen)
-                  })
-                  .catch((error) => {
-                    console.log(`Error: ${error}`.bgRed)
-                  })
+              axios.request(config)
+                .then( response => {
+                  console.log(`${response.data.message}`.bgGreen)
+                  logger.info(`${response.data.message}`)
+                })
+                .catch((error) => {
+                  console.log(`Error: ${error}`.bgRed)
+                  logger.error(`Error: ${error}`)
+                })
             })
+            conexion.end()
           })
         })
+        
       } else {
         console.log(`No hay programas nuevos en IRGE`.yellow)
       }
     })
     .catch(error => {
       console.log(`Error: ${error}`.bgRed)
+      logger.error(`Error: ${error}`)
     })
 }
 
@@ -934,13 +1058,13 @@ async function getProgramIRGE()
 function getDateReport(fechaFormateada)
 {
   const fecha = new Date(fechaFormateada)
-  const hora = format(fecha, 'HH')
+  const hora = format_date(fecha, 'HH')
   let fechaReporte = ''
 
   if (parseInt(hora) < 5) {
-    fechaReporte = format(subDays(fecha, 1), 'yyyy-MM-dd')
+    fechaReporte = format_date(subDays(fecha, 1), 'yyyy-MM-dd')
   } else {
-    fechaReporte = format(fecha, 'yyyy-MM-dd')
+    fechaReporte = format_date(fecha, 'yyyy-MM-dd')
   }
 
   return fechaReporte
