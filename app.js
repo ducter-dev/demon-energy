@@ -525,8 +525,6 @@ async function getNominations ()
                 
                 const sql = `INSERT INTO nominacion_mensual(unidadNeg, anio, mes, nominacion)
                             VALUES('${subgrupoTPA.clave}', ${anioTPA}, '${monthTPA}', ${nomination.volumen_tpa})`
-                console.log("🚀 ~ file: index.js:527 ~ conexionTPA.connect ~ sql:", sql)
-                            
                 
                 conexionTPA.query(sql, (error, result) => {
                   if (error) {
