@@ -125,6 +125,7 @@ async function getCustomersNews() {
               const url_update_subgroup = `${api_url}/subgroups`
               let dataForm = new FormData()
               dataForm.append('indentifier', subgrupo.ID)
+              dataForm.append('terminal', subgrupo.terminal === 'TPA' ? 'tpa' : 'irge' )
 
               let config = {
                 method: 'post',
@@ -134,7 +135,6 @@ async function getCustomersNews() {
                 },
                 data: dataForm
               }
-
               axios.request(config)
                 .then( response => {
                   console.log(`${response.data.message}`.bgGreen)
