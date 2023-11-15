@@ -81,36 +81,67 @@ async function getDataRDCTPA() {
     }
   
     const sql = `SELECT e.noEmbarque, e.pg, FORMAT(e.presionTanque,1,0) AS presionTanque, 
-      DATE_FORMAT(e.fechaSalida, '%H:%i') as fechaDoc, e.fechaSalida, e.nombreDestinatario, e.densidad AS densidad20, 
+      DATE_FORMAT(e.fechaSalida, '%H:%i') as fechaDoc, DATE_FORMAT(e.fechaSalida, '%Y-%m-%d %H:%i:%s') AS fechaSalida, e.nombreDestinatario, e.densidad AS densidad20, 
       emb.densidad_llenado as densidad,   e.nombrePorteador, e.compania AS idCompania, c.nombre AS compania, e.grupo, 
       e.subgrupo AS idSubgrupo, s.nombre AS subgrupo, FORMAT(e.masa, 0) AS masaStr, e.masa, e.volumen AS volumen20, 
       emb.volumen_llenado AS volumen, CONCAT(e.magnatel, '%') AS magnatel, e.presion, ROUND((e.masa / e.densidad)) AS litros, 
       DATE_FORMAT(emb.inicioCarga_llenado, '%H:%i') as inicioCarga, 
-      DATE_FORMAT(emb.finCarga_llenado, '%H:%i') as finCarga, emb.finCarga_llenado,
-      DATE_FORMAT(e.fechaJornada, '%W %d de %M de %Y') AS fechaJ, 
+      DATE_FORMAT(emb.finCarga_llenado, '%H:%i') as finCarga, DATE_FORMAT(emb.finCarga_llenado, '%Y-%m-%d %H:%i:%s') AS finCarga_llenado,
+      DATE_FORMAT(e.fechaJornada, '%Y-%m-%d') AS fechaJ, 
       IFNULL((SELECT DATE_FORMAT(fechaLlegada, '%H:%i') FROM accesos WHERE embarque = e.noEmbarque limit 1),'') AS fechaLlegada
       FROM entrada e
       INNER JOIN embarques emb ON e.NoEmbarque = emb.embarque
       INNER JOIN subgrupos s ON e.subgrupo = s.id
       INNER JOIN companias c ON e.compania = c.id
       WHERE e.fechaJornada = '${fechaReporte}' ORDER BY e.id ASC`
-  
-    console.log("🚀 ~ file: rdc.js:97 ~ getDataRDC ~ sql:", sql)
-  
-    conexion.query(sql, (error, result) => {
+    
+    conexion.query(sql, (error, results) => {
       if (error) {
         console.error(`Error al realizar la inserción del programa diaria: ${error.stack}`.bgRed)
         logger.error(`Error al realizar la inserción del programa diaria: ${error.stack}`)
         return null
       }
       const cargasPendientes = []
-      result.forEach(carga => {
+      const finalResults = []
+
+      for (let index = 0; index < results.length; index++) {
+        finalResults.push({...results[index]});
+      }
+      
+      finalResults.forEach(carga => {
         if (carga.idCompania == 2) {
+          const galones = parseFloat(parseInt(carga.masa) / parseFloat(carga.densidad20) * 0.264172)  
+          carga.galones = galones
+          carga.terminal_id = 1
           cargasPendientes.push(carga)
         }
       })
       
-      console.log("🚀 ~ file: rdc.js:164 ~ conexion.query ~ cargasPendientes:", cargasPendientes)
+      // Enviara actualización del RDC por carga
+      const url_rdc = `${api_url}/rdc`
+
+      const jsonCargas = {
+        meta_data: cargasPendientes
+      }
+      
+      let config = {
+        method: 'post',
+        url: url_rdc,
+        headers: { },
+        data: jsonCargas
+      }
+
+      axios.request(config)
+        .then( response => {
+          console.log(`${response.data.message}`.bgGreen)
+          logger.info(`${response.data.message}`)
+        })
+        .catch((error) => {
+          console.log(`Error: ${error.message}`.bgRed)
+          logger.error(`Error: ${error.message}`)
+        })
+        
+      
     })
     conexion.end()
   })
@@ -141,13 +172,13 @@ async function getDataRDCIRGE() {
     }
   
     const sql = `SELECT e.noEmbarque, e.pg, FORMAT(e.presionTanque,1,0) AS presionTanque, 
-      DATE_FORMAT(e.fechaSalida, '%H:%i') as fechaDoc, e.fechaSalida, e.nombreDestinatario, e.densidad AS densidad20, 
+      DATE_FORMAT(e.fechaSalida, '%H:%i') as fechaDoc, DATE_FORMAT(e.fechaSalida, '%Y-%m-%d %H:%i:%s') AS fechaSalida, e.nombreDestinatario, e.densidad AS densidad20, 
       emb.densidad_llenado as densidad,   e.nombrePorteador, e.compania AS idCompania, c.nombre AS compania, e.grupo, 
       e.subgrupo AS idSubgrupo,   s.nombre AS subgrupo, FORMAT(e.masa, 0) AS masaStr, e.masa, e.volumen AS volumen20, 
       emb.volumen_llenado AS volumen, CONCAT(e.magnatel, '%') AS magnatel, e.presion, ROUND((e.masa / e.densidad)) AS litros, 
       DATE_FORMAT(emb.inicioCarga_llenado, '%H:%i') as inicioCarga, 
-      DATE_FORMAT(emb.finCarga_llenado, '%H:%i') as finCarga, emb.finCarga_llenado,
-      DATE_FORMAT(e.fechaJornada, '%W %d de %M de %Y') AS fechaJ, 
+      DATE_FORMAT(emb.finCarga_llenado, '%H:%i') as finCarga, DATE_FORMAT(emb.finCarga_llenado, '%Y-%m-%d %H:%i:%s') AS finCarga_llenado,
+      DATE_FORMAT(e.fechaJornada, '%Y-%m-%d') AS fechaJ, 
       IFNULL((SELECT DATE_FORMAT(fechaLlegada, '%H:%i') FROM accesos WHERE embarque = e.noEmbarque limit 1),'') AS fechaLlegada
       FROM entrada e
       INNER JOIN embarques emb ON e.NoEmbarque = emb.embarque
@@ -158,21 +189,53 @@ async function getDataRDCIRGE() {
 
     console.log("🚀 ~ file: rdc.js:150 ~ conexion.connect ~ sql:", sql)
   
-    conexion.query(sql, (error, result) => {
+    conexion.query(sql, (error, results) => {
       if (error) {
         console.error(`Error al realizar la inserción del programa diaria: ${error.stack}`.bgRed)
         logger.error(`Error al realizar la inserción del programa diaria: ${error.stack}`)
         return null
       }
       const cargasPendientes = []
-      result.forEach(carga => {
+      const finalResults = []
+
+      for (let index = 0; index < results.length; index++) {
+        finalResults.push({...results[index]});
+      }
+      
+      finalResults.forEach(carga => {
         if (carga.idCompania == 2) {
+          const galones = parseFloat(parseInt(carga.masa) / parseFloat(carga.densidad20) * 0.264172)  
+          carga.galones = galones
+          carga.terminal_id = 2
           cargasPendientes.push(carga)
         }
       })
       
-      console.log("🚀 ~ file: rdc.js:164 ~ conexion.query ~ cargasPendientes:", cargasPendientes)
+      // Enviara actualización del RDC por carga
+      const url_rdc = `${api_url}/rdc`
 
+      const jsonCargas = {
+        meta_data: cargasPendientes
+      }
+      
+      let config = {
+        method: 'post',
+        url: url_rdc,
+        headers: { },
+        data: jsonCargas
+      }
+
+      axios.request(config)
+        .then( response => {
+          console.log(`${response.data.message}`.bgGreen)
+          logger.info(`${response.data.message}`)
+        })
+        .catch((error) => {
+          console.log(`Error: ${error.message}`.bgRed)
+          logger.error(`Error: ${error.message}`)
+        })
+        
+      
     })
     conexion.end()
   })
@@ -180,4 +243,4 @@ async function getDataRDCIRGE() {
 
 
 
-getDataRDCTPA()
+getDataRDCIRGE()
