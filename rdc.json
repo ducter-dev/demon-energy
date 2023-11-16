@@ -1,0 +1,6 @@
+{
+  "name": "daemon_rdc",
+  "script": "/home/mich/Documentos/Proyectos/Externos/demon_energy/rdc.js",
+  "cron_restart": "00 00 06 * *",
+  "autorestart": false
+}

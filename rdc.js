@@ -62,10 +62,7 @@ async function getDataRDCTPA() {
   const fecha = new Date()
   const fechaReporte = format_date(subDays(fecha, 1), 'yyyy-MM-dd')
 
-  console.log("🚀 ~ file: rdc.js:65 ~ getDataRDCTPA ~ fechaReporte:", fechaReporte)
-
   // Obtener la información de la terminal TPA
-
   const conexion = mysql.createConnection({
     host: dbHostTPA,
     user: dbUserTPA,
@@ -145,6 +142,7 @@ async function getDataRDCTPA() {
     })
     conexion.end()
   })
+  getDataRDCIRGE()
 }
 
 async function getDataRDCIRGE() {
@@ -153,10 +151,7 @@ async function getDataRDCIRGE() {
   const fecha = new Date()
   const fechaReporte = format_date(subDays(fecha, 1), 'yyyy-MM-dd')
 
-  console.log("🚀 ~ file: rdc.js:65 ~ getDataRDCIRGE ~ fechaReporte:", fechaReporte)
-
   // Obtener la información de la terminal TPA
-
   const conexion = mysql.createConnection({
     host: dbHostIRGE,
     user: dbUserIRGE,
@@ -186,8 +181,6 @@ async function getDataRDCIRGE() {
       INNER JOIN companias c ON e.compania = c.id
       WHERE e.fechaJornada = '${fechaReporte}' 
       ORDER BY e.id ASC`
-
-    console.log("🚀 ~ file: rdc.js:150 ~ conexion.connect ~ sql:", sql)
   
     conexion.query(sql, (error, results) => {
       if (error) {
@@ -243,4 +236,4 @@ async function getDataRDCIRGE() {
 
 
 
-getDataRDCIRGE()
+getDataRDCTPA()
