@@ -137,12 +137,11 @@ async function getDataRDCTPA() {
           console.log(`Error: ${error.message}`.bgRed)
           logger.error(`Error: ${error.message}`)
         })
-        
-      
+      getDataRDCIRGE()
     })
     conexion.end()
   })
-  getDataRDCIRGE()
+  
 }
 
 async function getDataRDCIRGE() {
@@ -233,7 +232,5 @@ async function getDataRDCIRGE() {
     conexion.end()
   })
 }
-
-
 
 getDataRDCTPA()
