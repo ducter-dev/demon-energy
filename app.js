@@ -8,6 +8,8 @@ const FormData = require('form-data')
 const winston = require('winston')
 const { format } = require('winston')
 const DailyRotateFile = require('winston-daily-rotate-file')
+const CryptoJS = require('crypto-js')
+const apiWebhooks = require('./webhooks')
 
 // Configura el transportador para el registro de información diario
 const infoTransport = new DailyRotateFile({
@@ -51,6 +53,14 @@ const id_user_reg = process.env.ID_USER_REG
 const user_reg = process.env.USER_REG
 
 const api_url = process.env.API_URL
+const api_key = process.env.API_KEY
+
+
+/* const configAxios = {
+  headers: {
+    'API-KEY': api_key
+  }
+} */
 
 /**
  * Monitors energy24-7.
@@ -72,11 +82,13 @@ async function monitorearEnergy() {
 async function getCustomersNews() {
 
   // Obtener la información del api
-  const url_subgroups = `${api_url}/subgroups`
+  //const url_subgroups = `${api_url}/subgroups`
   
-  await axios.get(url_subgroups)
+  await apiWebhooks.get('/subgroups')
     .then(response => {
       const { data } = response.data
+      console.log("🚀 ~ file: app.js:90 ~ getCustomersNews ~ data:", data)
+      console.log("🚀 ~ file: app.js:93 ~ getCustomersNews ~ data.length:", data.length)
       
       if (data.length > 0) {
 
@@ -122,20 +134,21 @@ async function getCustomersNews() {
               conexion.end()
 
               // Enviara actualización del id de subgrupo
-              const url_update_subgroup = `${api_url}/subgroups`
+              //const url_update_subgroup = `${api_url}/subgroups`
               let dataForm = new FormData()
               dataForm.append('indentifier', subgrupo.ID)
               dataForm.append('terminal', subgrupo.terminal === 'TPA' ? 'tpa' : 'irge' )
 
               let config = {
                 method: 'post',
-                url: url_update_subgroup,
+                url: '/subgroups',
                 headers: {
-                  ...dataForm.getHeaders()
+                  ...dataForm.getHeaders(),
+                  'API-KEY': api_key
                 },
                 data: dataForm
               }
-              axios.request(config)
+              apiWebhooks.request(config)
                 .then( response => {
                   console.log(`${response.data.message}`.bgGreen)
                   logger.info(`${response.data.message}`)
@@ -170,9 +183,8 @@ async function getCustomersNews() {
  */
 async function getOperatorsNews() {
   // Obtener la información del api tpa
-  const url_tpa = `${api_url}/operators?terminal=tpa` 
 
-  await axios.get(url_tpa)
+  await apiWebhooks.get('/operators?terminal=tpa')
     .then(response => {
       const { data } = response.data
       
@@ -206,21 +218,21 @@ async function getOperatorsNews() {
               conexion.end()
 
               // Enviara actualización del id de operador
-              const url_update_operator = `${api_url}/operators`
               let dataForm = new FormData()
               dataForm.append('indentifier', operator.ID)
               dataForm.append('terminal', 'tpa')
 
               let config = {
                 method: 'post',
-                url: url_update_operator,
+                url: '/operators',
                 headers: {
-                  ...dataForm.getHeaders()
+                  ...dataForm.getHeaders(),
+                  'API-KEY': api_key
                 },
                 data: dataForm
               }
 
-              axios.request(config)
+              apiWebhooks.request(config)
                 .then( response => {
                   console.log(`${response.data.message}`.bgGreen)
                   logger.info(`${response.data.message}`)
@@ -247,7 +259,7 @@ async function getOperatorsNews() {
   // Obtener la información del api irge
   const url_irge = `${api_url}/operators?terminal=irge` 
   
-  await axios.get(url_irge)
+  await axios.get(url_irge, configAxios)
   .then(response => {
     const { data } = response.data
     
@@ -291,7 +303,8 @@ async function getOperatorsNews() {
               method: 'post',
               url: url_update_operator,
               headers: {
-                ...dataForm.getHeaders()
+                ...dataForm.getHeaders(),
+                'API-KEY': api_key
               },
               data: dataForm
             }
@@ -320,7 +333,7 @@ async function getOperatorsNews() {
   })
   
 
-  await getEquipmentsNewsTPA()
+  //await getEquipmentsNewsTPA()
 }
 
 
@@ -334,7 +347,7 @@ async function getEquipmentsNewsTPA() {
   const url_equipments = `${api_url}/equipments?terminal=tpa` 
   const idBase = 2650
 
-  await axios.get(url_equipments)
+  await axios.get(url_equipments, configAxios)
     .then(response => {
       const { data } = response.data
       
@@ -375,7 +388,8 @@ async function getEquipmentsNewsTPA() {
                 method: 'post',
                 url: url_update_equipment,
                 headers: {
-                  ...dataForm.getHeaders()
+                  ...dataForm.getHeaders(),
+                  'API-KEY': api_key
                 },
                 data: dataForm
               }
@@ -410,7 +424,7 @@ async function getEquipmentsNewsIRGE() {
   const url_equipments = `${api_url}/equipments?terminal=irge` 
   const idBase = 2650
   
-  await axios.get(url_equipments)
+  await axios.get(url_equipments, configAxios)
     .then(response => {
       const { data } = response.data
       
@@ -452,7 +466,8 @@ async function getEquipmentsNewsIRGE() {
                 method: 'post',
                 url: url_update_equipment,
                 headers: {
-                  ...dataForm.getHeaders()
+                  ...dataForm.getHeaders(),
+                  'API-KEY': api_key
                 },
                 data: dataForm
               }
@@ -494,7 +509,7 @@ async function getNominations ()
   // Obtener la información del api
   const url_nominations = `${api_url}/nominations`
   
-  await axios.get(url_nominations)
+  await axios.get(url_nominations, configAxios)
     .then(response => {
       const { data } = response.data
 
@@ -559,7 +574,8 @@ async function getNominations ()
                         method: 'post',
                         url: url_update_daily_nomination,
                         headers: {
-                          ...dataForm.getHeaders()
+                          ...dataForm.getHeaders(),
+                          'API-KEY': api_key
                         },
                         data: dataForm
                       }
@@ -585,7 +601,8 @@ async function getNominations ()
                     method: 'post',
                     url: url_update_nomination,
                     headers: {
-                      ...dataForm.getHeaders()
+                      ...dataForm.getHeaders(),
+                      'API-KEY': api_key
                     },
                     data: dataForm
                   }
@@ -665,7 +682,8 @@ async function getNominations ()
                         method: 'post',
                         url: url_update_daily_nomination,
                         headers: {
-                          ...dataForm.getHeaders()
+                          ...dataForm.getHeaders(),
+                          'API-KEY': api_key
                         },
                         data: dataForm
                       }
@@ -691,7 +709,8 @@ async function getNominations ()
                     method: 'post',
                     url: url_update_nomination,
                     headers: {
-                      ...dataForm.getHeaders()
+                      ...dataForm.getHeaders(),
+                      'API-KEY': api_key
                     },
                     data: dataForm
                   }
@@ -735,7 +754,7 @@ async function getDailyNominations()
 {
   const url_nominations = `${api_url}/daily_nominations`
 
-  await axios.get(url_nominations)
+  await axios.get(url_nominations, configAxios)
     .then(response => {
       const { data } = response.data
 
@@ -781,7 +800,8 @@ async function getDailyNominations()
                     method: 'post',
                     url: url_update_nomination,
                     headers: {
-                      ...dataForm.getHeaders()
+                      ...dataForm.getHeaders(),
+                      'API-KEY': api_key
                     },
                     data: dataForm
                   }
@@ -840,7 +860,8 @@ async function getDailyNominations()
                   method: 'post',
                   url: url_update_nomination,
                   headers: {
-                    ...dataForm.getHeaders()
+                    ...dataForm.getHeaders(),
+                    'API-KEY': api_key
                   },
                   data: dataForm
                 }
@@ -883,7 +904,7 @@ async function getProgramTPA()
 {
   const url_program = `${api_url}/programs?terminal=tpa`
 
-  await axios.get(url_program)
+  await axios.get(url_program, configAxios)
     .then(response => {
       const { data } = response.data
       
@@ -931,7 +952,8 @@ async function getProgramTPA()
                   method: 'post',
                   url: url_update_program,
                   headers: {
-                    ...dataForm.getHeaders()
+                    ...dataForm.getHeaders(),
+                    'API-KEY': api_key
                   },
                   data: dataForm
                 }
@@ -970,7 +992,7 @@ async function getProgramIRGE()
 {
   const url_program = `${api_url}/programs?terminal=irge`
 
-  await axios.get(url_program)
+  await axios.get(url_program, configAxios)
     .then(response => {
       const { data } = response.data
       
@@ -1018,7 +1040,8 @@ async function getProgramIRGE()
                 method: 'post',
                 url: url_update_program,
                 headers: {
-                  ...dataForm.getHeaders()
+                  ...dataForm.getHeaders(),
+                  'API-KEY': api_key
                 },
                 data: dataForm
               }
@@ -1068,5 +1091,13 @@ function getDateReport(fechaFormateada)
   return fechaReporte
 
 }
+
+function desencriptarResponse(resp) {
+  console.log("🚀 ~ file: app.js:1099 ~ desencriptarResponse ~ resp:", resp)
+  const respuestaDesencriptada = CryptoJS.AES.decrypt(resp, api_key).toString(CryptoJS.enc.Utf8)
+  console.log("🚀 ~ file: app.js:1096 ~ desencriptarResponse ~ respuestaDesencriptada:", respuestaDesencriptada)
+  return respuestaDesencriptada
+}
+
 
 monitorearEnergy()
