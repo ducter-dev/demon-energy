@@ -1,6 +1,5 @@
 require('dotenv').config()
 const mysql = require('mysql')
-const axios = require('axios')
 var colors = require('colors')
 const { subDays } = require('date-fns')
 const format_date = require('date-fns/format')
@@ -8,6 +7,7 @@ const FormData = require('form-data')
 const winston = require('winston')
 const { format } = require('winston')
 const DailyRotateFile = require('winston-daily-rotate-file')
+const apiWebhooks = require('./webhooks')
 
 // Configura el transportador para el registro de información diario
 const infoTransport = new DailyRotateFile({
@@ -50,8 +50,6 @@ const dbDatabaseIRGE = process.env.DB_IRGE
 const id_user_reg = process.env.ID_USER_REG
 const user_reg = process.env.USER_REG
 
-const api_url = process.env.API_URL
-
 /**
  * Monitors energy24-7.
  *
@@ -72,16 +70,14 @@ async function monitorearEnergy() {
 async function getCustomersNews() {
 
   // Obtener la información del api
-  const url_subgroups = `${api_url}/subgroups`
-  
-  await axios.get(url_subgroups)
+  await apiWebhooks.get('/subgroups')
     .then(response => {
       const { data } = response.data
       
       if (data.length > 0) {
 
         data.forEach(async (subgrupo) => {
-          console.log(`Registrando subgrupo ${subgrupo.nombre}`.bgGreen)
+          console.log(`Registrando en ${subgrupo.terminal} - subgrupo ${subgrupo.nombre}`.bgGreen)
 
           const conexion = mysql.createConnection({
             host: subgrupo.terminal === 'TPA' ? dbHostTPA : dbHostIRGE,
@@ -101,41 +97,40 @@ async function getCustomersNews() {
                         VALUES('${subgrupo.clave}', 0, '${subgrupo.nombre}', 1, ${idCompania}, 1)`
             conexion.query(sql, (error, result) => {
               if (error) {
-                console.error(`Error al realizar la inserción del subgrupo: ${error.stack}`.bgRed)
-                logger.error(`Error al realizar la inserción del subgrupo: ${error.stack}`)
+                console.error(`Error al realizar la inserción en ${subgrupo.terminal} del subgrupo: ${error.stack}`.bgRed)
+                logger.error(`Error al realizar la inserción en ${subgrupo.terminal} del subgrupo: ${error.stack}`)
                 return null
               }
-              console.log(`Creado en subgrupos: ${subgrupo.nombre}`.bgGreen)
+              console.log(`Creado en subgrupos en ${subgrupo.terminal}: ${subgrupo.nombre}`.bgGreen)
               const sql2 = `INSERT INTO nominaciones_orden(subgrupo, orden, color, textColor, label, button)
                             VALUES('${subgrupo.clave}', 0, '#D1D1D1', 'black','black','#B3AEAE')`
               
               conexion.query(sql2, (error, result) => {
                 if (error) {
-                  console.error(`Error al realizar la inserción del subgrupo: ${error.stack}`.bgRed)
-                  logger.error(`Error al realizar la inserción del subgrupo: ${error.stack}`)
+                  console.error(`Error al realizar la inserción del subgrupo en ${subgrupo.terminal}: ${error.stack}`.bgRed)
+                  logger.error(`Error al realizar la inserción del subgrupo en ${subgrupo.terminal}: ${error.stack}`)
                   return null
                 }
-                console.log(`Subgrupo agregado al grupo de nominaciones: ${subgrupo.nombre}`.bgGreen)
-                logger.info(`Subgrupo agregado al grupo de nominaciones: ${subgrupo.nombre}`)
+                console.log(`Subgrupo agregado al grupo de nominaciones en ${subgrupo.terminal}: ${subgrupo.nombre}`.bgGreen)
+                logger.info(`Subgrupo agregado al grupo de nominaciones en ${subgrupo.terminal}: ${subgrupo.nombre}`)
               })
 
               conexion.end()
 
               // Enviara actualización del id de subgrupo
-              const url_update_subgroup = `${api_url}/subgroups`
               let dataForm = new FormData()
               dataForm.append('indentifier', subgrupo.ID)
               dataForm.append('terminal', subgrupo.terminal === 'TPA' ? 'tpa' : 'irge' )
 
               let config = {
                 method: 'post',
-                url: url_update_subgroup,
+                url: '/subgroups',
                 headers: {
-                  ...dataForm.getHeaders()
+                  ...dataForm.getHeaders(),
                 },
                 data: dataForm
               }
-              axios.request(config)
+              apiWebhooks.request(config)
                 .then( response => {
                   console.log(`${response.data.message}`.bgGreen)
                   logger.info(`${response.data.message}`)
@@ -159,7 +154,6 @@ async function getCustomersNews() {
 
   // Obtener operadores nuevos
   await getOperatorsNews()
-
 }
 
 
@@ -170,9 +164,8 @@ async function getCustomersNews() {
  */
 async function getOperatorsNews() {
   // Obtener la información del api tpa
-  const url_tpa = `${api_url}/operators?terminal=tpa` 
 
-  await axios.get(url_tpa)
+  await apiWebhooks.get('/operators?terminal=tpa')
     .then(response => {
       const { data } = response.data
       
@@ -206,21 +199,20 @@ async function getOperatorsNews() {
               conexion.end()
 
               // Enviara actualización del id de operador
-              const url_update_operator = `${api_url}/operators`
               let dataForm = new FormData()
               dataForm.append('indentifier', operator.ID)
               dataForm.append('terminal', 'tpa')
 
               let config = {
                 method: 'post',
-                url: url_update_operator,
+                url: '/operators',
                 headers: {
-                  ...dataForm.getHeaders()
+                  ...dataForm.getHeaders(),
                 },
                 data: dataForm
               }
 
-              axios.request(config)
+              apiWebhooks.request(config)
                 .then( response => {
                   console.log(`${response.data.message}`.bgGreen)
                   logger.info(`${response.data.message}`)
@@ -245,9 +237,7 @@ async function getOperatorsNews() {
 
 
   // Obtener la información del api irge
-  const url_irge = `${api_url}/operators?terminal=irge` 
-  
-  await axios.get(url_irge)
+  await apiWebhooks.get('/operators?terminal=irge')
   .then(response => {
     const { data } = response.data
     
@@ -282,21 +272,20 @@ async function getOperatorsNews() {
             conexion.end()
 
             // Enviara actualización del id de operador
-            const url_update_operator = `${api_url}/operators`
             let dataForm = new FormData()
             dataForm.append('indentifier', operator.ID)
             dataForm.append('terminal', 'irge')
 
             let config = {
               method: 'post',
-              url: url_update_operator,
+              url: 'operators',
               headers: {
-                ...dataForm.getHeaders()
+                ...dataForm.getHeaders(),
               },
               data: dataForm
             }
 
-            axios.request(config)
+            apiWebhooks.request(config)
               .then( response => {
                 console.log(`${response.data.message}`.bgGreen)
                 logger.info(`${response.data.message}`)
@@ -331,17 +320,16 @@ async function getOperatorsNews() {
  */
 async function getEquipmentsNewsTPA() {
   // Obtener la información del api tpa
-  const url_equipments = `${api_url}/equipments?terminal=tpa` 
   const idBase = 2650
 
-  await axios.get(url_equipments)
+  await apiWebhooks.get('/equipments?terminal=tpa')
     .then(response => {
       const { data } = response.data
       
       if (data.length > 0) {
 
         data.forEach(equipment => {
-          console.log(`Registrando autotanque ${equipment.nombre} en TPA`.bgGreen)
+          console.log(`Registrando autotanque ${equipment.pg} en TPA`.bgGreen)
           const conexion = mysql.createConnection({
             host: dbHostTPA,
             user: dbUserTPA,
@@ -358,29 +346,28 @@ async function getEquipmentsNewsTPA() {
                         VALUES('${idBase + equipment.ID}', '${equipment.pg}','${equipment.capacidad}', '${equipment.placa}', 0, '${equipment.fecha_creacion}', '${equipment.idCRE}')`
             conexion.query(sql, (error, result) => {
               if (error) {
-                console.error(`Error al realizar la inserción del autotanque: ${error.stack}`.bgRed)
-                logger.error(`Error al realizar la inserción del autotanque: ${error.stack}`)
+                console.error(`Error al realizar la inserción en TPA del autotanque: ${error.stack}`.bgRed)
+                logger.error(`Error al realizar la inserción en TPA del autotanque: ${error.stack}`)
               }
               console.log(`Ha sido registrado autotanque ${equipment.pg} en la terminal TPA`.bgGreen)
               logger.info(`Ha sido registrado autotanque ${equipment.pg} en la terminal TPA`)
               conexion.end()
               
               // Enviara actualización del id de operador
-              const url_update_equipment = `${api_url}/equipments`
               let dataForm = new FormData()
               dataForm.append('indentifier', equipment.ID)
               dataForm.append('terminal', 'tpa')
 
               let config = {
                 method: 'post',
-                url: url_update_equipment,
+                url: '/equipments',
                 headers: {
-                  ...dataForm.getHeaders()
+                  ...dataForm.getHeaders(),
                 },
                 data: dataForm
               }
 
-              axios.request(config)
+              apiWebhooks.request(config)
                 .then( response => {
                   console.log(`${response.data.message}`.bgGreen)
                   logger.info(`${response.data.message}`)
@@ -407,17 +394,16 @@ async function getEquipmentsNewsTPA() {
 
 async function getEquipmentsNewsIRGE() {
   // Obtener la información del api irge
-  const url_equipments = `${api_url}/equipments?terminal=irge` 
   const idBase = 2650
   
-  await axios.get(url_equipments)
+  await apiWebhooks.get('/equipments?terminal=irge')
     .then(response => {
       const { data } = response.data
       
       if (data.length > 0) {
 
         data.forEach(equipment => {
-          console.log(`Registrando autotanque ${equipment.nombre}`.bgGreen)
+          console.log(`Registrando autotanque ${equipment.pg}`.bgGreen)
           
           const conexion = mysql.createConnection({
             host: dbHostIRGE,
@@ -435,29 +421,28 @@ async function getEquipmentsNewsIRGE() {
                         VALUES('${idBase + equipment.ID}', '${equipment.pg}','${equipment.capacidad}', '${equipment.placa}', 0, '${equipment.fecha_creacion}', '${equipment.idCRE}')`
             conexion.query(sql, (error, result) => {
               if (error) {
-                console.error(`Error al realizar la inserción del autotanque: ${error.stack}`.bgRed)
-                logger.error(`Error al realizar la inserción del autotanque: ${error.stack}`)
+                console.error(`Error al realizar la inserción en IRGE del autotanque: ${error.stack}`.bgRed)
+                logger.error(`Error al realizar la inserción en IRGE del autotanque: ${error.stack}`)
               }
               console.log(`Ha sido registrado autotanque ${equipment.pg} en la terminal IRGE`.bgGreen)
               logger.error(`Ha sido registrado autotanque ${equipment.pg} en la terminal IRGE`)
               conexion.end()
 
               // Enviara actualización del id de operador
-              const url_update_equipment = `${api_url}/equipments`
               let dataForm = new FormData()
               dataForm.append('indentifier', equipment.ID)
               dataForm.append('terminal', 'irge')
 
               let config = {
                 method: 'post',
-                url: url_update_equipment,
+                url: '/equipments',
                 headers: {
-                  ...dataForm.getHeaders()
+                  ...dataForm.getHeaders(),
                 },
                 data: dataForm
               }
 
-              axios.request(config)
+              apiWebhooks.request(config)
                 .then( response => {
                   console.log(`${response.data.message}`.bgGreen)
                   logger.info(`${response.data.message}`)
@@ -492,12 +477,10 @@ async function getEquipmentsNewsIRGE() {
 async function getNominations ()
 {
   // Obtener la información del api
-  const url_nominations = `${api_url}/nominations`
-  
-  await axios.get(url_nominations)
+  await apiWebhooks.get('/nominations')
     .then(response => {
       const { data } = response.data
-
+      
       if (data.length > 0) {
 
         data.forEach(nomination => {
@@ -528,8 +511,8 @@ async function getNominations ()
                 
                 conexionTPA.query(sql, (error, result) => {
                   if (error) {
-                    console.error(`Error al realizar la inserción de la nominación mensual: ${error.stack}`.bgRed)
-                    logger.error(`Error al realizar la inserción de la nominación mensual: ${error.stack}`)
+                    console.error(`Error al realizar la inserciónen en TPA de la nominación mensual: ${error.stack}`.bgRed)
+                    logger.error(`Error al realizar la inserción en TPA de la nominación mensual: ${error.stack}`)
                     return null
                   }
                   console.log(`Agregado a las nominaciones mensuales TPA: ${nomination.ID} - subgrupo: ${subgrupoTPA.clave}`.bgGreen)
@@ -538,32 +521,31 @@ async function getNominations ()
                     
                     const sql2 = `INSERT INTO nominaciones(unidadNeg, nominacion, fecha_nominacion)
                                   VALUES('${subgrupoTPA.clave}', ${parseInt(nomDay.TPA)}, '${nomDay.fecha}')`
-                    console.log("🚀 ~ file: index.js:544 ~ conexionTPA.query ~ sql2:", sql2)
+                    //console.log("🚀 ~ file: index.js:544 ~ conexionTPA.query ~ sql2:", sql2)
                                   
                     conexionTPA.query(sql2, (error, result) => {
                       if (error) {
-                        console.error(`Error al realizar la inserción del nominación diaria: ${error.stack}`.bgRed)
-                        logger.error(`Error al realizar la inserción del nominación diaria: ${error.stack}`)
+                        console.error(`Error al realizar la inserción en TPA del nominación diaria: ${error.stack}`.bgRed)
+                        logger.error(`Error al realizar la inserción en TPA del nominación diaria: ${error.stack}`)
                         return null
                       }
-                      console.log(`Agregado a las nominaciones diarias TPA: ID: ${nomDay.ID_DIA} - ${nomDay.fecha} - subgrupo: ${subgrupoTPA.clave}`.bgGreen)
-                      logger.info(`Agregado a las nominaciones diarias TPA: ID: ${nomDay.ID_DIA} - ${nomDay.fecha} - subgrupo: ${subgrupoTPA.clave}`)
+                      console.log(`Agregado a las nominaciones diarias TPA: ID: ${nomDay.ID_DIA} - ${parseInt(nomDay.TPA)} - ${nomDay.fecha} - subgrupo: ${subgrupoTPA.clave}`.bgGreen)
+                      logger.info(`Agregado a las nominaciones diarias TPA: ID: ${nomDay.ID_DIA} - ${parseInt(nomDay.TPA)} - ${nomDay.fecha} - subgrupo: ${subgrupoTPA.clave}`)
                       
 
                       // Enviara actualización del id de nominación
-                      const url_update_daily_nomination = `${api_url}/daily_nominations`
                       let dataForm = new FormData()
                       dataForm.append('indentifier', nomDay.ID_DIA)
 
                       let configDaily = {
                         method: 'post',
-                        url: url_update_daily_nomination,
+                        url: '/daily_nominations',
                         headers: {
-                          ...dataForm.getHeaders()
+                          ...dataForm.getHeaders(),
                         },
                         data: dataForm
                       }
-                      axios.request(configDaily)
+                      apiWebhooks.request(configDaily)
                         .then( response => {
                           console.log(`${response.data.message}`.bgGreen)
                           logger.info(`${response.data.message}`)
@@ -575,22 +557,21 @@ async function getNominations ()
                     })
 
                   })
-                  conexionTPA.end()
+                  
                   // Enviara actualización del id de nominación
-                  const url_update_nomination = `${api_url}/nominations`
                   let dataForm = new FormData()
                   dataForm.append('indentifier', nomination.ID)
 
                   let config = {
                     method: 'post',
-                    url: url_update_nomination,
+                    url: '/nominations',
                     headers: {
-                      ...dataForm.getHeaders()
+                      ...dataForm.getHeaders(),
                     },
                     data: dataForm
                   }
 
-                  axios.request(config)
+                  apiWebhooks.request(config)
                     .then( response => {
                       console.log(`${response.data.message}`.bgGreen)
                       logger.info(`${response.data.message}`)
@@ -599,8 +580,8 @@ async function getNominations ()
                       console.log(`Error: ${error}`.bgRed)
                       logger.error(`Error: ${error}`)
                     })
+                  conexionTPA.end()
                 })
-                conexionTPA.end()
               })
             } else {
               console.log('Error: subgrupo vacío en TPA.'.bgRed)
@@ -631,13 +612,13 @@ async function getNominations ()
                 const sql = `INSERT INTO nominacion_mensual(unidadNeg, anio, mes, nominacion)
                             VALUES('${subgrupoIRGE.clave}', ${anioIRGE}, '${monthIRGE}', ${nomination.volumen_dda})`
 
-                console.log("🚀 ~ file: index.js:633 ~ conexionIRGE.connect ~ sql:", sql)
+                //console.log("🚀 ~ file: index.js:633 ~ conexionIRGE.connect ~ sql:", sql)
                 console.log(`Agregado a las nominaciones mensuales IRGE: ${nomination.ID} - subgrupo: ${subgrupoIRGE.clave}`.bgGreen)
                 logger.info(`Agregado a las nominaciones mensuales IRGE: ${nomination.ID} - subgrupo: ${subgrupoIRGE.clave}`)
                 conexionIRGE.query(sql, (error, result) => {
                   if (error) {
-                    console.error(`Error al realizar la inserción de la nominación: ${error.stack}`.bgRed)
-                    logger.error(`Error al realizar la inserción de la nominación: ${error.stack}`)
+                    console.error(`Error al realizar la inserción en IRGE de la nominación: ${error.stack}`.bgRed)
+                    logger.error(`Error al realizar la inserción en IRGE de la nominación: ${error.stack}`)
                     return null
                   }
                   
@@ -645,32 +626,31 @@ async function getNominations ()
     
                     const sql2 = `INSERT INTO nominaciones(unidadNeg, nominacion, fecha_nominacion)
                                   VALUES('${subgrupoIRGE.clave}', ${parseInt(nomDay.DDA)}, '${nomDay.fecha}')`
-                    console.log(`🚀 ~ file: index.js:642 ~ conexionIRGE.query ~ sql2: ${sql2}`.cyan)
+                    //console.log(`🚀 ~ file: index.js:642 ~ conexionIRGE.query ~ sql2: ${sql2}`.cyan)
                                   
                     conexionIRGE.query(sql2, (error, result) => {
                       if (error) {
-                        console.error(`Error al realizar la inserción del nominación diaria: ${error.stack}`.bgRed)
-                        logger.error(`Error al realizar la inserción del nominación diaria: ${error.stack}`)
+                        console.error(`Error al realizar la inserción en IRGE del nominación diaria: ${error.stack}`.bgRed)
+                        logger.error(`Error al realizar la inserción en IRGE del nominación diaria: ${error.stack}`)
                         return null
                       }
-                      console.log(`Agregado a las nominaciones diarias IRGE: ID: ${nomDay.ID_DIA} - ${nomDay.fecha} - subgrupo: ${subgrupoIRGE.clave}`.bgGreen)
-                      logger.info(`Agregado a las nominaciones diarias IRGE: ID: ${nomDay.ID_DIA} - ${nomDay.fecha} - subgrupo: ${subgrupoIRGE.clave}`)
+                      console.log(`Agregado a las nominaciones diarias IRGE: ID: ${nomDay.ID_DIA} - ${parseInt(nomDay.DDA)} - ${nomDay.fecha} - subgrupo: ${subgrupoIRGE.clave}`.bgGreen)
+                      logger.info(`Agregado a las nominaciones diarias IRGE: ID: ${nomDay.ID_DIA} - ${parseInt(nomDay.DDA)} - ${nomDay.fecha} - subgrupo: ${subgrupoIRGE.clave}`)
 
                       // Enviara actualización del id de nominación
-                      const url_update_daily_nomination = `${api_url}/daily_nominations`
                       let dataForm = new FormData()
                       dataForm.append('indentifier', nomDay.ID_DIA)
 
                       let configDaily = {
                         method: 'post',
-                        url: url_update_daily_nomination,
+                        url: '/daily_nominations',
                         headers: {
-                          ...dataForm.getHeaders()
+                          ...dataForm.getHeaders(),
                         },
                         data: dataForm
                       }
 
-                      axios.request(configDaily)
+                      apiWebhooks.request(configDaily)
                         .then( response => {
                           console.log(`${response.data.message}`.bgGreen)
                           logger.info(`${response.data.message}`)
@@ -683,20 +663,19 @@ async function getNominations ()
                   })
     
                   // Enviara actualización del id de subgrupo
-                  const url_update_nomination = `${api_url}/nominations`
                   let dataForm = new FormData()
                   dataForm.append('indentifier', nomination.ID)
 
                   let config = {
                     method: 'post',
-                    url: url_update_nomination,
+                    url: '/nominations',
                     headers: {
-                      ...dataForm.getHeaders()
+                      ...dataForm.getHeaders(),
                     },
                     data: dataForm
                   }
 
-                  axios.request(config)
+                  apiWebhooks.request(config)
                     .then( response => {
                       console.log(`${response.data.message}`.bgGreen)
                       logger.info(`${response.data.message}`)
@@ -733,12 +712,10 @@ async function getNominations ()
  */
 async function getDailyNominations()
 {
-  const url_nominations = `${api_url}/daily_nominations`
-
-  await axios.get(url_nominations)
+  await apiWebhooks.get('/daily_nominations')
     .then(response => {
       const { data } = response.data
-
+      
       if (data.length > 0) {
         data.forEach(daily_nom => {
           console.log(`Registrando nominación diaria con id: ${daily_nom.ID}`.yellow)
@@ -765,41 +742,40 @@ async function getDailyNominations()
                                   
               conexionTPA.query(sql, (error, result) => {
                 if (error) {
-                  console.error(`Error al realizar la inserción del nominación diaria: ${error.stack}`.bgRed)
-                  logger.error(`Error al realizar la inserción del nominación diaria: ${error.stack}`)
+                  console.error(`Error al realizar la inserción de TPA del nominación diaria: ${error.stack}`.bgRed)
+                  logger.error(`Error al realizar la inserción de TPA del nominación diaria: ${error.stack}`)
                   return null
                 }
                 console.log(`Actualizada a las nominación diaria TPA: ${daily_nom.fecha} - subgrupo: ${subgrupoTPA.clave}`.bgGreen)
                 logger.info(`Actualizada a las nominación diaria TPA: ${daily_nom.fecha} - subgrupo: ${subgrupoTPA.clave}`)
                 conexionTPA.end()
 
-                const url_update_nomination = `${api_url}/daily_nominations`
-                  let dataForm = new FormData()
-                  dataForm.append('indentifier', daily_nom.ID)
+                let dataForm = new FormData()
+                dataForm.append('indentifier', daily_nom.ID)
 
-                  let config = {
-                    method: 'post',
-                    url: url_update_nomination,
-                    headers: {
-                      ...dataForm.getHeaders()
-                    },
-                    data: dataForm
-                  }
+                let config = {
+                  method: 'post',
+                  url: '/daily_nominations',
+                  headers: {
+                    ...dataForm.getHeaders(),
+                  },
+                  data: dataForm
+                }
 
-                  axios.request(config)
-                    .then( response => {
-                      console.log(`${response.data.message}`.bgGreen)
-                      logger.info(`${response.data.message}`)
-                    })
-                    .catch((error) => {
-                      console.log(`Error: ${error}`.bgRed)
-                      logger.error(`Error: ${error}`)
-                    })
+                apiWebhooks.request(config)
+                  .then( response => {
+                    console.log(`${response.data.message}`.bgGreen)
+                    logger.info(`${response.data.message}`)
+                  })
+                  .catch((error) => {
+                    console.log(`Error: ${error}`.bgRed)
+                    logger.error(`Error: ${error}`)
+                  })
               })
             })
           }  else {
-            console.log('Error: Nominaciones Diarias subgrupo vacío en TPA.'.bgRed)
-            logger.error('Error: Nominaciones Diarias subgrupo vacío en TPA.')
+            console.log('Info: Nominaciones Diarias subgrupo vacío en TPA.'.bgBlue)
+            logger.info('Info: Nominaciones Diarias subgrupo vacío en TPA.')
           }
 
           // IRGE
@@ -824,28 +800,27 @@ async function getDailyNominations()
                                   
               conexionIRGE.query(sql, (error, result) => {
                 if (error) {
-                  console.error(`Error al realizar la inserción del nominación diaria: ${error.stack}`.bgRed)
-                  logger.error(`Error al realizar la inserción del nominación diaria: ${error.stack}`)
+                  console.error(`Error al realizar la inserción de IRGE del nominación diaria: ${error.stack}`.bgRed)
+                  logger.error(`Error al realizar la inserción de IRGE del nominación diaria: ${error.stack}`)
                   return null
                 }
                 console.log(`Actualizada a las nominación diaria IRGE: ${daily_nom.fecha} - subgrupo: ${subgrupoIRGE.clave}`.bgGreen)
                 logger.info(`Actualizada a las nominación diaria IRGE: ${daily_nom.fecha} - subgrupo: ${subgrupoIRGE.clave}`)
                 conexionIRGE.end()
 
-                const url_update_nomination = `${api_url}/daily_nominations`
                 let dataForm = new FormData()
                 dataForm.append('indentifier', daily_nom.ID)
 
                 let config = {
                   method: 'post',
-                  url: url_update_nomination,
+                  url: '/daily_nominations',
                   headers: {
-                    ...dataForm.getHeaders()
+                    ...dataForm.getHeaders(),
                   },
                   data: dataForm
                 }
 
-                axios.request(config)
+                apiWebhooks.request(config)
                   .then( response => {
                     console.log(`${response.data.message}`.bgGreen)
                     logger.info(`${response.data.message}`)
@@ -857,8 +832,8 @@ async function getDailyNominations()
               })
             })
           }  else {
-            console.log('Error: subgrupo vacío en IRGE.'.bgRed)
-            logger.error('Error: subgrupo vacío en IRGE.')
+            console.log('Info: subgrupo vacío en IRGE.'.bgBlue)
+            logger.info('Info: subgrupo vacío en IRGE.')
           }
         })
       } else {
@@ -881,9 +856,7 @@ async function getDailyNominations()
  */
 async function getProgramTPA()
 {
-  const url_program = `${api_url}/programs?terminal=tpa`
-
-  await axios.get(url_program)
+  await apiWebhooks.get('/programs?terminal=tpa')
     .then(response => {
       const { data } = response.data
       
@@ -915,28 +888,27 @@ async function getProgramTPA()
                                 
             conexion.query(sql, (error, result) => {
               if (error) {
-                console.error(`Error al realizar la inserción del programa diaria: ${error.stack}`.bgRed)
-                logger.error(`Error al realizar la inserción del programa diaria: ${error.stack}`)
+                console.error(`Error al realizar la inserción en TPA del programa diaria: ${error.stack}`.bgRed)
+                logger.error(`Error al realizar la inserción en TPA del programa diaria: ${error.stack}`)
                 return null
               }
               console.log(`Se insertó la programación en TPA: ${program.pg} - subgrupo: ${subgrupo.clave}`.bgGreen)
               logger.info(`Se insertó la programación en TPA: ${program.pg} - subgrupo: ${subgrupo.clave}`)
               
 
-              const url_update_program = `${api_url}/programs`
                 let dataForm = new FormData()
                 dataForm.append('indentifier', program.ID)
 
                 let config = {
                   method: 'post',
-                  url: url_update_program,
+                  url: '/programs',
                   headers: {
-                    ...dataForm.getHeaders()
+                    ...dataForm.getHeaders(),
                   },
                   data: dataForm
                 }
 
-                axios.request(config)
+                apiWebhooks.request(config)
                   .then( response => {
                     console.log(`${response.data.message}`.bgGreen)
                     logger.info(`${response.data.message}`)
@@ -968,12 +940,9 @@ async function getProgramTPA()
  */
 async function getProgramIRGE()
 {
-  const url_program = `${api_url}/programs?terminal=irge`
-
-  await axios.get(url_program)
+  await apiWebhooks.get('/programs?terminal=irge')
     .then(response => {
       const { data } = response.data
-      
       
       if (data.length > 0) {
         
@@ -1003,27 +972,26 @@ async function getProgramIRGE()
                                 
             conexion.query(sql, (error, result) => {
               if (error) {
-                console.error(`Error al realizar la inserción del programa diaria: ${error.stack}`.bgRed)
-                logger.error(`Error al realizar la inserción del programa diaria: ${error.stack}`)
+                console.error(`Error al realizar la inserción en IRGE del programa diaria: ${error.stack}`.bgRed)
+                logger.error(`Error al realizar la inserción en IRGE del programa diaria: ${error.stack}`)
                 return null
               }
               console.log(`Se insertó la programación en IRGE: ${program.pg} - subgrupo: ${subgrupo.clave}`.bgGreen)
               logger.info(`Se insertó la programación en IRGE: ${program.pg} - subgrupo: ${subgrupo.clave}`)
               
-              const url_update_program = `${api_url}/programs`
               let dataForm = new FormData()
               dataForm.append('indentifier', program.ID)
 
               let config = {
                 method: 'post',
-                url: url_update_program,
+                url: '/programs',
                 headers: {
-                  ...dataForm.getHeaders()
+                  ...dataForm.getHeaders(),
                 },
                 data: dataForm
               }
 
-              axios.request(config)
+              apiWebhooks.request(config)
                 .then( response => {
                   console.log(`${response.data.message}`.bgGreen)
                   logger.info(`${response.data.message}`)
