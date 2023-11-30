@@ -202,6 +202,7 @@ async function getOperatorsNews() {
               let dataForm = new FormData()
               dataForm.append('indentifier', operator.ID)
               dataForm.append('terminal', 'tpa')
+              dataForm.append('identifier_terminal', operator.ID)
 
               let config = {
                 method: 'post',
@@ -275,6 +276,7 @@ async function getOperatorsNews() {
             let dataForm = new FormData()
             dataForm.append('indentifier', operator.ID)
             dataForm.append('terminal', 'irge')
+            dataForm.append('identifier_terminal', operator.ID)
 
             let config = {
               method: 'post',
