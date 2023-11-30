@@ -314,6 +314,155 @@ async function getOperatorsNews() {
   await getEquipmentsNewsTPA()
 }
 
+async function getOperatorsUpdated() {
+  // Obtener operadores actualizado en TPA
+
+  await apiWebhooks.get('/operators/update?terminal=tpa')
+    .then(response => {
+      const { data } = response.data
+      console.log("🚀 ~ file: app.js:323 ~ getOperatorsUpdated ~ data:", data)
+      
+      if (data.length > 0) {
+        data.forEach(operator => {
+          console.log(`Actualizando operador ${operator.nombre} en TPA`.bgGreen)
+          const conexion = mysql.createConnection({
+            host: dbHostTPA,
+            user: dbUserTPA,
+            password: dbPasswordTPA,
+            database: dbDatabaseTPA,
+          })
+
+          conexion.connect((error) => {
+            if (error) {
+              console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+              logger.error(`Error al conectar a la base de datos:  ${error.stack}`)
+            }
+            const sql = `UPDATE operador SET nombre_operador = '${operator.nombre}', identificacion = '${operator.clave_elector}', curp = '${operator.curp}'
+                        WHERE id_operador = ${operator.ID}`
+            console.log("🚀 ~ file: app.js:341 ~ conexion.connect ~ sql:", sql)
+            conexion.query(sql, (error, result) => {
+              if (error) {
+                console.error(`Error al realizar la actualización del operador en TPA: ${error.stack}`.bgRed)
+                logger.error(`Error al realizar la actualización del operador en TPA: ${error.stack}`)
+                return null
+              }
+              console.log(`Ha sido actualizado el operador ${operator.nombre} en la terminal ${operator.terminal}`.bgGreen)
+              logger.info(`Ha sido actualizado el operador ${operator.nombre} en la terminal ${operator.terminal}`)
+              conexion.end()
+
+              // Enviara actualización del id de operador
+              let dataForm = new FormData()
+              dataForm.append('indentifier', operator.ID)
+              dataForm.append('terminal', 'tpa')
+              dataForm.append('identifier_terminal', operator.ID)
+
+              let config = {
+                method: 'post',
+                url: '/operators',
+                headers: {
+                  ...dataForm.getHeaders(),
+                },
+                data: dataForm
+              }
+
+              apiWebhooks.request(config)
+                .then( response => {
+                  console.log(`${response.data.message}`.bgGreen)
+                  logger.info(`${response.data.message}`)
+                })
+                .catch((error) => {
+                  console.log(`Error: ${error}`.bgRed)
+                  logger.error(`Error: ${error}`)
+                })
+            })
+          })
+        })
+      } else {
+        console.log('No existen operadores actualizados en TPA.'.yellow)
+      }
+
+    })
+    .catch(error => {
+      console.log(`Error: ${error}`.bgRed)
+      logger.error(`Error: ${error}`.bgRed)
+    })
+
+  // Obtener operadores actualizado en TPA
+
+  await apiWebhooks.get('/operators/update?terminal=irge')
+    .then(response => {
+      const { data } = response.data
+      console.log("🚀 ~ file: app.js:395 ~ getOperatorsUpdated ~ data:", data)
+      
+      if (data.length > 0) {
+        data.forEach(operator => {
+          console.log(`Actualizando operador ${operator.nombre} en IRGE`.bgGreen)
+          const conexion = mysql.createConnection({
+            host: dbHostIRGE,
+            user: dbUserIRGE,
+            password: dbPasswordIRGE,
+            database: dbDatabaseIRGE,
+          })
+
+          conexion.connect((error) => {
+            if (error) {
+              console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+              logger.error(`Error al conectar a la base de datos:  ${error.stack}`)
+            }
+            const sql = `UPDATE operador SET nombre_operador = '${operator.nombre}', identificacion = '${operator.clave_elector}', curp = '${operator.curp}'
+                        WHERE id_operador = ${operator.ID}`
+            console.log("🚀 ~ file: app.js:416 ~ conexion.connect ~ sql:", sql)
+            
+            conexion.query(sql, (error, result) => {
+              if (error) {
+                console.error(`Error al realizar la actualización del operador en IRGE: ${error.stack}`.bgRed)
+                logger.error(`Error al realizar la actualización del operador en IRGE: ${error.stack}`)
+                return null
+              }
+              console.log(`Ha sido actualizado el operador ${operator.nombre} en la terminal ${operator.terminal}`.bgGreen)
+              logger.info(`Ha sido actualizado el operador ${operator.nombre} en la terminal ${operator.terminal}`)
+              conexion.end()
+
+              // Enviara actualización del id de operador
+              let dataForm = new FormData()
+              dataForm.append('indentifier', operator.ID)
+              dataForm.append('terminal', 'irge')
+              dataForm.append('identifier_terminal', operator.ID)
+
+              let config = {
+                method: 'post',
+                url: '/operators',
+                headers: {
+                  ...dataForm.getHeaders(),
+                },
+                data: dataForm
+              }
+
+              apiWebhooks.request(config)
+                .then( response => {
+                  console.log(`${response.data.message}`.bgGreen)
+                  logger.info(`${response.data.message}`)
+                })
+                .catch((error) => {
+                  console.log(`Error: ${error}`.bgRed)
+                  logger.error(`Error: ${error}`)
+                })
+            })
+          })
+        })
+      } else {
+        console.log('No existen operadores actualizados en IRGE.'.yellow)
+      }
+
+    })
+    .catch(error => {
+      console.log(`Error: ${error}`.bgRed)
+      logger.error(`Error: ${error}`.bgRed)
+    })
+
+}
+
+
 
 /**
  * Retrieves the latest information about equipments from the API and registers them in the database.
@@ -469,7 +618,6 @@ async function getEquipmentsNewsIRGE() {
 
   await getNominations()
 }
-
 
 /**
  * Retrieves nominations from the API and inserts them into the database.
@@ -850,7 +998,6 @@ async function getDailyNominations()
   await getProgramTPA()
 }
 
-
 /**
  * Retrieves the program TPA from the API and inserts it into the database.
  *
@@ -934,7 +1081,6 @@ async function getProgramTPA()
   await getProgramIRGE()
 }
 
-
 /**
  * Retrieves the program from the API and inserts it into the database.
  *
@@ -1017,7 +1163,6 @@ async function getProgramIRGE()
     })
   await getCarriersTPA()
 }
-
 
 async function getCarriersTPA () {
   await apiWebhooks.get('/carriers?terminal=tpa')
@@ -1169,6 +1314,7 @@ async function getCarriersIRGE () {
       console.log(`Error: ${error}`.bgRed)
       logger.error(`Error: ${error}`)
     })
+  await getOperatorsUpdated()
 }
 
 /**
