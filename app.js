@@ -186,12 +186,12 @@ async function getOperatorsNews() {
               console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
               logger.error(`Error al conectar a la base de datos:  ${error.stack}`)
             }
-            const sql = `INSERT INTO operador(id_operador, nombre_operador, grupo, telefonoOperador, identificacion)
-                        VALUES('${operator.ID}', '${operator.nombre}', 'Nieto', '', '${operator.clave_elector}')`
+            const sql = `INSERT INTO operador(id_operador, nombre_operador, grupo, telefonoOperador, identificacion, curp)
+                        VALUES('${operator.ID}', '${operator.nombre}', 'Nieto', '', '${operator.clave_elector}', '${operator.curp}')`
             conexion.query(sql, (error, result) => {
               if (error) {
-                console.error(`Error al realizar la inserción del operador: ${error.stack}`.bgRed)
-                logger.error(`Error al realizar la inserción del operador: ${error.stack}`)
+                console.error(`Error al realizar la inserción del operador en TPA: ${error.stack}`.bgRed)
+                logger.error(`Error al realizar la inserción del operador en TPA: ${error.stack}`)
                 return null
               }
               console.log(`Ha sido registrado operador ${operator.nombre} en la terminal ${operator.terminal}`.bgGreen)
@@ -240,7 +240,7 @@ async function getOperatorsNews() {
   await apiWebhooks.get('/operators?terminal=irge')
   .then(response => {
     const { data } = response.data
-    
+
     if (data.length > 0) {
 
       data.forEach(operator => {
@@ -259,12 +259,12 @@ async function getOperatorsNews() {
             logger.error(`Error al conectar a la base de datos:  ${error.stack}`)
             return null
           }
-          const sql = `INSERT INTO operador(id_operador, nombre_operador, grupo, telefonoOperador, identificacion)
-                      VALUES('${operator.ID}', '${operator.nombre}', 'Nieto', '', '${operator.clave_elector}')`
+          const sql = `INSERT INTO operador(id_operador, nombre_operador, grupo, telefonoOperador, identificacion, curp)
+                      VALUES('${operator.ID}', '${operator.nombre}', 'Nieto', '', '${operator.clave_elector}', '${operator.curp}')`
           conexion.query(sql, (error, result) => {
             if (error) {
-              console.error(`Error al realizar la inserción del operador: ${error.stack}`.bgRed)
-              logger.error(`Error al realizar la inserción del operador: ${error.stack}`)
+              console.error(`Error al realizar la inserción del operador en IRGE: ${error.stack}`.bgRed)
+              logger.error(`Error al realizar la inserción del operador en IRGE: ${error.stack}`)
               return null
             }
             console.log(`Ha sido registrado operador ${operator.nombre} en la terminal ${operator.terminal}`.bgGreen)
