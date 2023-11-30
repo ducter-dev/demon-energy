@@ -59,7 +59,7 @@ async function monitorearEnergy() {
   console.log('🚀 Iniciando monitoreo de energy24-7'.bgBlue)
   logger.info('🚀 Iniciando monitoreo de energy24-7')
   await getCustomersNews()
-  setTimeout(monitorearEnergy, 60000)
+  //setTimeout(monitorearEnergy, 60000)
 }
 
 /**
@@ -1007,6 +1007,160 @@ async function getProgramIRGE()
         
       } else {
         console.log(`No hay programas nuevos en IRGE`.yellow)
+      }
+    })
+    .catch(error => {
+      console.log(`Error: ${error}`.bgRed)
+      logger.error(`Error: ${error}`)
+    })
+  await getCarriersTPA()
+}
+
+
+async function getCarriersTPA () {
+  await apiWebhooks.get('/carriers?terminal=tpa')
+    .then(response => {
+      const { data } = response.data
+      console.log("🚀 ~ file: app.js:1024 ~ getCarriersTPA ~ data:", data)
+      const id_terminal = 303
+      
+      if (data.length > 0) {
+        data.forEach(carrier => {
+          const conexion = mysql.createConnection({
+            host: dbHostTPA,
+            user: dbUserTPA,
+            password: dbPasswordTPA,
+            database: dbDatabaseTPA,
+          })
+
+          const fecha = new Date()
+
+          conexion.connect((error) => {
+            if (error) {
+              console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+              logger.error(`Error al conectar a la base de datos:  ${error.stack}`)
+              return null
+            }
+
+            const sql = `INSERT INTO porteador(idporteador, nombrePorteador, clavePorteador, rfcPorteador, grupo, activo) 
+                        VALUES ('${id_terminal + carrier.ID}', '${carrier.business_name}', '${carrier.permission_cre}', '${carrier.rfc}', '', 1)`
+            console.log("🚀 ~ file: app.js:1046 ~ conexion.connect ~ sql:", sql)
+
+            conexion.query(sql, (error, result) => {
+              if (error) {
+                console.error(`Error al realizar la inserción en TPA del transportista: ${error.stack}`.bgRed)
+                logger.error(`Error al realizar la inserción en TPA del transportista: ${error.stack}`)
+                return null
+              }
+
+              console.log(`Se insertó el transportista en TPA: ${carrier.business_name}`.bgGreen)
+              logger.info(`Se insertó el transportista en TPA: ${carrier.business_name}`)
+
+              let dataForm = new FormData()
+                dataForm.append('indentifier', carrier.ID)
+                dataForm.append('terminal', 'tpa')
+
+                let config = {
+                  method: 'post',
+                  url: '/carriers',
+                  headers: {
+                    ...dataForm.getHeaders(),
+                  },
+                  data: dataForm
+                }
+
+                apiWebhooks.request(config)
+                  .then( response => {
+                    console.log(`${response.data.message}`.bgGreen)
+                    logger.info(`${response.data.message}`)
+                  })
+                  .catch((error) => {
+                    console.log(`Error: ${error}`.bgRed)
+                    logger.error(`Error: ${error}`)
+                  })
+            })
+            conexion.end()
+          })
+        })
+      } else {
+        console.log(`No hay transportistas nuevos en TPA`.yellow)
+      }
+    })
+    .catch(error => {
+      console.log(`Error: ${error}`.bgRed)
+      logger.error(`Error: ${error}`)
+    })
+  await getCarriersIRGE()
+}
+
+async function getCarriersIRGE () {
+  await apiWebhooks.get('/carriers?terminal=irge')
+    .then(response => {
+      const { data } = response.data
+      console.log("🚀 ~ file: app.js:1098 ~ getCarriersIRGE ~ data:", data)
+      
+      const id_terminal = 123
+      
+      if (data.length > 0) {
+        data.forEach(carrier => {
+          const conexion = mysql.createConnection({
+            host: dbHostIRGE,
+            user: dbUserIRGE,
+            password: dbPasswordIRGE,
+            database: dbDatabaseIRGE,
+          })
+
+          const fecha = new Date()
+
+          conexion.connect((error) => {
+            if (error) {
+              console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+              logger.error(`Error al conectar a la base de datos:  ${error.stack}`)
+              return null
+            }
+
+            const sql = `INSERT INTO porteador(idporteador, nombrePorteador, clavePorteador, rfcPorteador, grupo, activo) 
+                        VALUES ('${id_terminal + carrier.ID}', '${carrier.business_name}', '${carrier.permission_cre}', '${carrier.rfc}', '', 1)`
+            console.log("🚀 ~ file: app.js:1122 ~ conexion.connect ~ sql:", sql)
+
+            conexion.query(sql, (error, result) => {
+              if (error) {
+                console.error(`Error al realizar la inserción en IRGE del transportista: ${error.stack}`.bgRed)
+                logger.error(`Error al realizar la inserción en IRGE del transportista: ${error.stack}`)
+                return null
+              }
+
+              console.log(`Se insertó el transportista en IRGE: ${carrier.business_name}`.bgGreen)
+              logger.info(`Se insertó el transportista en IRGE: ${carrier.business_name}`)
+
+              let dataForm = new FormData()
+                dataForm.append('indentifier', carrier.ID)
+                dataForm.append('terminal', 'irge')
+
+                let config = {
+                  method: 'post',
+                  url: '/carriers',
+                  headers: {
+                    ...dataForm.getHeaders(),
+                  },
+                  data: dataForm
+                }
+
+                apiWebhooks.request(config)
+                  .then( response => {
+                    console.log(`${response.data.message}`.bgGreen)
+                    logger.info(`${response.data.message}`)
+                  })
+                  .catch((error) => {
+                    console.log(`Error: ${error}`.bgRed)
+                    logger.error(`Error: ${error}`)
+                  })
+            })
+            conexion.end()
+          })
+        })
+      } else {
+        console.log(`No hay transportistas nuevos en IRGE`.yellow)
       }
     })
     .catch(error => {
