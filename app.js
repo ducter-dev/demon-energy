@@ -58,7 +58,7 @@ const user_reg = process.env.USER_REG
 async function monitorearEnergy() {
   console.log('🚀 Iniciando monitoreo de energy24-7'.bgBlue)
   logger.info('🚀 Iniciando monitoreo de energy24-7')
-  await getCustomersNews()
+  await getDestinations()
   //setTimeout(monitorearEnergy, 60000)
 }
 
@@ -1244,7 +1244,6 @@ async function getCarriersIRGE () {
   await apiWebhooks.get('/carriers?terminal=irge')
     .then(response => {
       const { data } = response.data
-      console.log("🚀 ~ file: app.js:1098 ~ getCarriersIRGE ~ data:", data)
       
       const id_terminal = 123
       
@@ -1315,6 +1314,161 @@ async function getCarriersIRGE () {
       logger.error(`Error: ${error}`)
     })
   await getOperatorsUpdated()
+}
+
+
+async function getDestinations() {
+  await apiWebhooks.get('/destinations?terminal=tpa')
+  .then(response => {
+      const { data } = response.data
+      console.log("🚀 ~ file: app.js:1325 ~ getDestinantions ~ data:", data)
+      const id_destino_bd = 603
+      
+      if (data.length > 0) {
+
+        data.forEach(destination => {
+          console.log(`Registrando destino ${destination.nombre} en TPA`.bgGreen)
+          
+          const conexion = mysql.createConnection({
+            host: dbHostTPA,
+            user: dbUserTPA,
+            password: dbPasswordTPA,
+            database: dbDatabaseTPA,
+          })
+          
+          conexion.connect((error) => {
+            if (error) {
+              console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+              logger.error(`Error al conectar a la base de datos:  ${error.stack}`)
+            }
+            const subgrupo = destination.subgrupos[0]
+            console.log("🚀 ~ file: app.js:1345 ~ conexion.connect ~ subgrupo:", subgrupo)
+            
+            const sql = `INSERT INTO destinatario(iddestinatario, nombreDestino, direccionDestino, claveDestino, telefonoDestino, grupo, subgrupo)
+                        VALUES (${id_destino_bd + destination.ID},'${destination.nombre}','${destination.direccion}','${destination.clave}','${destination.telefono}', 'NIETO','${subgrupo}')`
+            console.log("🚀 ~ file: app.js:1346 ~ conexion.connect ~ sql:", sql)
+            conexion.query(sql, (error, result) => {
+              if (error) {
+                console.error(`Error al realizar la inserción del destino en TPA: ${error.stack}`.bgRed)
+                logger.error(`Error al realizar la inserción del destino en TPA: ${error.stack}`)
+                return null
+              }
+              console.log(`Ha sido registrado destino ${destination.nombre} en la terminal TPA`.bgGreen)
+              logger.info(`Ha sido registrado destino ${destination.nombre} en la terminal TPA`)
+              conexion.end()
+
+              // Enviara actualización del id de operador
+              let dataForm = new FormData()
+              dataForm.append('indentifier', destination.ID)
+              dataForm.append('terminal', 'tpa')
+
+              let config = {
+                method: 'post',
+                url: '/destinations',
+                headers: {
+                  ...dataForm.getHeaders(),
+                },
+                data: dataForm
+              }
+
+              apiWebhooks.request(config)
+                .then( response => {
+                  console.log(`${response.data.message}`.bgGreen)
+                  logger.info(`${response.data.message}`)
+                })
+                .catch((error) => {
+                  console.log(`Error: ${error}`.bgRed)
+                  logger.error(`Error: ${error}`)
+                })
+            })
+          })
+        })
+
+        // Actualizar Autotanques
+      } else {
+        console.log('No existen destinos nuevos en TPA.'.yellow)
+      }
+    })
+    .catch(error => {
+      console.log(`Error 1389: ${error}`.bgRed)
+      logger.error(`Error: ${error}`)
+    })
+
+
+  // Obtener la información del api irge
+  await apiWebhooks.get('/destinations?terminal=irge')
+  .then(response => {
+    const { data } = response.data
+    console.log("🚀 ~ file: app.js:1399 ~ getDestinantions ~ data:", data)
+    const id_destino_bd = 557
+    if (data.length > 0) {
+
+      data.forEach(destination => {
+        console.log(`Registrando des ${destination.nombre} en IRGE`.bgGreen)
+
+        const conexion = mysql.createConnection({
+          host: dbHostIRGE,
+          user: dbUserIRGE,
+          password: dbPasswordIRGE,
+          database: dbDatabaseIRGE,
+        })
+        
+        conexion.connect((error) => {
+          if (error) {
+            console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
+            logger.error(`Error al conectar a la base de datos:  ${error.stack}`)
+            return null
+          }
+          const subgrupo = destination.subgrupos[0]
+          console.log("🚀 ~ file: app.js:1345 ~ conexion.connect ~ subgrupo:", subgrupo)
+          const sql = `INSERT INTO destinatario(iddestinatario, nombreDestino, direccionDestino, claveDestino, telefonoDestino, grupo, subgrupo)
+                      VALUES (${id_destino_bd + destination.ID},'${destination.nombre}','${destination.direccion}','${destination.clave}','${destination.telefono}', 'NIETO','${subgrupo}')`
+          conexion.query(sql, (error, result) => {
+            if (error) {
+              console.error(`Error al realizar la inserción del destino en IRGE: ${error.stack}`.bgRed)
+              logger.error(`Error al realizar la inserción del destino en IRGE: ${error.stack}`)
+              return null
+            }
+            console.log(`Ha sido registrado destino ${destination.nombre} en la terminal IRGE`.bgGreen)
+            logger.info(`Ha sido registrado destino ${destination.nombre} en la terminal IRGE`)
+            conexion.end()
+
+            // Enviara actualización del id de operador
+            let dataForm = new FormData()
+            dataForm.append('indentifier', destination.ID)
+              dataForm.append('terminal', 'irge')
+
+            let config = {
+              method: 'post',
+              url: 'destinations',
+              headers: {
+                ...dataForm.getHeaders(),
+              },
+              data: dataForm
+            }
+
+            apiWebhooks.request(config)
+              .then( response => {
+                console.log(`${response.data.message}`.bgGreen)
+                logger.info(`${response.data.message}`)
+              })
+              .catch((error) => {
+                console.log(`Error: ${error}`.bgRed)
+                logger.error(`Error: ${error}`)
+              })
+          })
+        })
+      })
+      
+      // Actualizar Autotanques
+    } else {
+      console.log('No existen destinos nuevos en IRGE.'.yellow)
+    }
+  })
+  .catch(error => {
+    console.log(`Error 1464: ${error}`.bgRed)
+    logger.error(`Error: ${error}`.bgRed)
+  })
 }
 
 /**
