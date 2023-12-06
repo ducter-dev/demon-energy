@@ -1,13 +1,20 @@
 require('dotenv').config()
 const mysql = require('mysql')
+const mysql2 = require('mysql2/promise')
 var colors = require('colors')
 const { subDays } = require('date-fns')
 const format_date = require('date-fns/format')
 const FormData = require('form-data')
 const winston = require('winston')
-const { format } = require('winston')
+const { format, prettyPrint } = require('winston')
 const DailyRotateFile = require('winston-daily-rotate-file')
 const apiWebhooks = require('./webhooks')
+
+const timezoned = () => {
+  return new Date().toLocaleString('es-MX', {
+      timeZone: 'America/Mexico_City'
+  });
+}
 
 // Configura el transportador para el registro de información diario
 const infoTransport = new DailyRotateFile({
@@ -28,8 +35,8 @@ const errorTransport = new DailyRotateFile({
 // Crea un registrador de Winston
 const logger = winston.createLogger({
   format: format.combine(
-    format.timestamp(),
-    format.json()
+    format.timestamp({ format: timezoned}),
+    format.prettyPrint()
   ),
   transports: [infoTransport, errorTransport]
 })
@@ -58,7 +65,7 @@ const user_reg = process.env.USER_REG
 async function monitorearEnergy() {
   console.log('🚀 Iniciando monitoreo de energy24-7'.bgBlue)
   logger.info('🚀 Iniciando monitoreo de energy24-7')
-  await getDestinations()
+  await getCustomersNews()
   //setTimeout(monitorearEnergy, 60000)
 }
 
@@ -314,6 +321,11 @@ async function getOperatorsNews() {
   await getEquipmentsNewsTPA()
 }
 
+/**
+ * Retrieves and updates operators in the TPA and IRGE terminals.
+ *
+ * @return {Promise} A promise that resolves when all operators are updated.
+ */
 async function getOperatorsUpdated() {
   // Obtener operadores actualizado en TPA
 
@@ -1008,10 +1020,11 @@ async function getProgramTPA()
   await apiWebhooks.get('/programs?terminal=tpa')
     .then(response => {
       const { data } = response.data
+      console.log("🚀 ~ file: app.js:1016 ~ data TPA:", data)
       
       if (data.length > 0) {
         
-        data.forEach(program => {
+        data.forEach(async(program) => {
           const conexion = mysql.createConnection({
             host: dbHostTPA,
             user: dbUserTPA,
@@ -1023,7 +1036,7 @@ async function getProgramTPA()
           const fechaFormateada = format_date(fecha, 'yyyy-MM-dd HH:mm:ss')
           const fechaReporte = getDateReport(fechaFormateada)
           const subgrupo = program.subgrupos.find( s => s.terminal === 'TPA')
-
+          
           conexion.connect((error) => {
             if (error) {
               console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
@@ -1034,16 +1047,26 @@ async function getProgramTPA()
             const sql = `INSERT INTO accesos (claveAcceso, fechaLlegada, embarque, estado, presion, fechaReporte, pg, idUser_reg, usuario_reg, subgrupo, programa, id_programa_energy)
                         VALUES ('${program.clave}', '${fechaFormateada}', 0, 1, 0, '${fechaReporte}', '${program.pg}', '${id_user_reg}', '${user_reg}', '${subgrupo.clave}', 1, ${program.ID})`
             console.log("🚀 ~ file: index.js:912 ~ conexion.connect ~ sql:", sql)
-                                
+
             conexion.query(sql, (error, result) => {
               if (error) {
                 console.error(`Error al realizar la inserción en TPA del programa diaria: ${error.stack}`.bgRed)
                 logger.error(`Error al realizar la inserción en TPA del programa diaria: ${error.stack}`)
                 return null
               }
-              console.log(`Se insertó la programación en TPA: ${program.pg} - subgrupo: ${subgrupo.clave}`.bgGreen)
-              logger.info(`Se insertó la programación en TPA: ${program.pg} - subgrupo: ${subgrupo.clave}`)
-              
+
+              const sqlProgram = `INSERT INTO programas (id_programa_energy, id_transportista, id_destino, autotanque, id_operador)
+              VALUES ('${program.ID}', '${program.transportista.ID}', '${program.destino.ID}', '${program.pg}', '${program.operator.ID}')`
+              console.log("🚀 ~ file: app.js:1059 ~ conexion.query TPA ~ sqlProgram:", sqlProgram)
+
+              conexion.query(sqlProgram, (error, result) => {
+                if (error) {
+                  console.error(`Error al realizar la inserción en TPA del programa diaria: ${error.stack}`.bgRed)
+                  logger.error(`Error al realizar la inserción en TPA del programa diaria: ${error.stack}`)
+                  return null
+                }
+                console.log(`Se insertó la programación en TPA: ${program.pg} - subgrupo: ${subgrupo.clave}`.bgGreen)
+                logger.info(`Se insertó la programación en TPA: ${program.pg} - subgrupo: ${subgrupo.clave}`)
 
                 let dataForm = new FormData()
                 dataForm.append('indentifier', program.ID)
@@ -1066,9 +1089,10 @@ async function getProgramTPA()
                     console.log(`Error: ${error}`.bgRed)
                     logger.error(`Error: ${error}`)
                   })
+              })
+              conexion.end()
             })
-            conexion.end()
-          })
+          }) 
         })
       }  else {
         console.log(`No hay programas nuevos en TPA`.yellow)
@@ -1091,10 +1115,11 @@ async function getProgramIRGE()
   await apiWebhooks.get('/programs?terminal=irge')
     .then(response => {
       const { data } = response.data
+      console.log("🚀 ~ file: app.js:1100 ~ data IRGE:", data)
       
       if (data.length > 0) {
         
-        data.forEach(program => {
+        data.forEach(async(program) => {
           const conexion = mysql.createConnection({
             host: dbHostIRGE,
             user: dbUserIRGE,
@@ -1106,14 +1131,14 @@ async function getProgramIRGE()
           const fechaFormateada = format_date(fecha, 'yyyy-MM-dd HH:mm:ss')
           const fechaReporte = getDateReport(fechaFormateada)
           const subgrupo = program.subgrupos.find( s => s.terminal === 'DDA')
-
+          
           conexion.connect((error) => {
             if (error) {
               console.error(`Error al conectar a la base de datos:  ${error.stack}`.bgRed)
               logger.error(`Error al conectar a la base de datos:  ${error.stack}`)
               return null
             }
-  
+
             const sql = `INSERT INTO accesos (claveAcceso, fechaLlegada, embarque, estado, presion, fechaReporte, pg, idUser_reg, usuario_reg, subgrupo, programa, id_programa_energy)
                         VALUES ('${program.clave}', '${fechaFormateada}', 0, 1, 0, '${fechaReporte}', '${program.pg}', '${id_user_reg}', '${user_reg}', '${subgrupo.clave}', 1, ${program.ID})`
             console.log("🚀 ~ file: index.js:998 ~ conexion.connect ~ sql:", sql)
@@ -1124,32 +1149,39 @@ async function getProgramIRGE()
                 logger.error(`Error al realizar la inserción en IRGE del programa diaria: ${error.stack}`)
                 return null
               }
-              console.log(`Se insertó la programación en IRGE: ${program.pg} - subgrupo: ${subgrupo.clave}`.bgGreen)
-              logger.info(`Se insertó la programación en IRGE: ${program.pg} - subgrupo: ${subgrupo.clave}`)
-              
-              let dataForm = new FormData()
-              dataForm.append('indentifier', program.ID)
 
-              let config = {
-                method: 'post',
-                url: '/programs',
-                headers: {
-                  ...dataForm.getHeaders(),
-                },
-                data: dataForm
-              }
+              const sqlProgram = `INSERT INTO programas (id_programa_energy, id_transportista, id_destino, autotanque, id_operador)
+              VALUES ('${program.ID}', '${program.transportista.ID}', '${program.destino.ID}', '${program.pg}', '${program.operator.ID}')`
+              console.log("🚀 ~ file: app.js:1154 ~ conexion.query IRGE ~ sqlProgram:", sqlProgram)
 
-              apiWebhooks.request(config)
-                .then( response => {
-                  console.log(`${response.data.message}`.bgGreen)
-                  logger.info(`${response.data.message}`)
-                })
-                .catch((error) => {
-                  console.log(`Error: ${error}`.bgRed)
-                  logger.error(`Error: ${error}`)
-                })
+              conexion.query(sqlProgram, (error, result) => {
+                console.log(`Se insertó la programación en IRGE: ${program.pg} - subgrupo: ${subgrupo.clave}`.bgGreen)
+                logger.info(`Se insertó la programación en IRGE: ${program.pg} - subgrupo: ${subgrupo.clave}`)
+                
+                let dataForm = new FormData()
+                dataForm.append('indentifier', program.ID)
+  
+                let config = {
+                  method: 'post',
+                  url: '/programs',
+                  headers: {
+                    ...dataForm.getHeaders(),
+                  },
+                  data: dataForm
+                }
+  
+                apiWebhooks.request(config)
+                  .then( response => {
+                    console.log(`${response.data.message}`.bgGreen)
+                    logger.info(`${response.data.message}`)
+                  })
+                  .catch((error) => {
+                    console.log(`Error: ${error}`.bgRed)
+                    logger.error(`Error: ${error}`)
+                  })
+              })
+              conexion.end()
             })
-            conexion.end()
           })
         })
         
@@ -1240,6 +1272,11 @@ async function getCarriersTPA () {
   await getCarriersIRGE()
 }
 
+/**
+ * Retrieves the carriers from the API for the IRGE terminal and inserts them into the IRGE database.
+ *
+ * @return {Promise<void>} Returns a Promise that resolves when the carriers have been inserted into the database.
+ */
 async function getCarriersIRGE () {
   await apiWebhooks.get('/carriers?terminal=irge')
     .then(response => {
@@ -1317,6 +1354,11 @@ async function getCarriersIRGE () {
 }
 
 
+/**
+ * Retrieves the destinations from the API and inserts them into the corresponding databases.
+ *
+ * @return {Promise<void>} - A promise that resolves when all destinations have been processed.
+ */
 async function getDestinations() {
   await apiWebhooks.get('/destinations?terminal=tpa')
   .then(response => {
