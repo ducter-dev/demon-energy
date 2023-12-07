@@ -57,6 +57,14 @@ const dbDatabaseIRGE = process.env.DB_IRGE
 const id_user_reg = process.env.ID_USER_REG
 const user_reg = process.env.USER_REG
 
+// Catálogos
+const id_destino_tpa = parseInt(process.env.ID_DESTINOS_TPA)
+const id_destino_irge = parseInt(process.env.ID_DESTINOS_IRGE)
+const id_transportista_tpa = parseInt(process.env.ID_TRANSPORTISTA_TPA)
+const id_transportista_irge = parseInt(process.env.ID_TRANSPORTISTA_IRGE)
+const id_autotanque_tpa = parseInt(process.env.ID_AUTOTANQUE_TPA)
+const id_autotanque_irge = parseInt(process.env.ID_AUTOTANQUE_IRGE)
+
 /**
  * Monitors energy24-7.
  *
@@ -471,7 +479,7 @@ async function getOperatorsUpdated() {
       console.log(`Error: ${error}`.bgRed)
       logger.error(`Error: ${error}`.bgRed)
     })
-
+  await getDestinations()
 }
 
 
@@ -483,7 +491,7 @@ async function getOperatorsUpdated() {
  */
 async function getEquipmentsNewsTPA() {
   // Obtener la información del api tpa
-  const idBase = 2650
+  const idBase = id_autotanque_tpa
 
   await apiWebhooks.get('/equipments?terminal=tpa')
     .then(response => {
@@ -557,7 +565,7 @@ async function getEquipmentsNewsTPA() {
 
 async function getEquipmentsNewsIRGE() {
   // Obtener la información del api irge
-  const idBase = 2650
+  const idBase = id_autotanque_irge
   
   await apiWebhooks.get('/equipments?terminal=irge')
     .then(response => {
@@ -1031,7 +1039,6 @@ async function getProgramTPA()
             password: dbPasswordTPA,
             database: dbDatabaseTPA,
           })
-
           const fecha = new Date()
           const fechaFormateada = format_date(fecha, 'yyyy-MM-dd HH:mm:ss')
           const fechaReporte = getDateReport(fechaFormateada)
@@ -1056,7 +1063,7 @@ async function getProgramTPA()
               }
 
               const sqlProgram = `INSERT INTO programas (id_programa_energy, id_transportista, id_destino, autotanque, id_operador)
-              VALUES ('${program.ID}', '${program.transportista.ID}', '${program.destino.ID}', '${program.pg}', '${program.operator.ID}')`
+              VALUES ('${program.ID}', '${ id_transportista_tpa + program.transportista.ID}', '${id_destino_tpa + program.destino.ID}', '${program.pg}', '${program.operator.ID}')`
               console.log("🚀 ~ file: app.js:1059 ~ conexion.query TPA ~ sqlProgram:", sqlProgram)
 
               conexion.query(sqlProgram, (error, result) => {
@@ -1151,7 +1158,7 @@ async function getProgramIRGE()
               }
 
               const sqlProgram = `INSERT INTO programas (id_programa_energy, id_transportista, id_destino, autotanque, id_operador)
-              VALUES ('${program.ID}', '${program.transportista.ID}', '${program.destino.ID}', '${program.pg}', '${program.operator.ID}')`
+              VALUES ('${program.ID}', '${id_transportista_irge + program.transportista.ID}', '${id_destino_irge + program.destino.ID}', '${program.pg}', '${program.operator.ID}')`
               console.log("🚀 ~ file: app.js:1154 ~ conexion.query IRGE ~ sqlProgram:", sqlProgram)
 
               conexion.query(sqlProgram, (error, result) => {
@@ -1201,7 +1208,7 @@ async function getCarriersTPA () {
     .then(response => {
       const { data } = response.data
       console.log("🚀 ~ file: app.js:1024 ~ getCarriersTPA ~ data:", data)
-      const id_terminal = 303
+      const id_terminal = id_transportista_tpa
       
       if (data.length > 0) {
         data.forEach(carrier => {
@@ -1282,7 +1289,7 @@ async function getCarriersIRGE () {
     .then(response => {
       const { data } = response.data
       
-      const id_terminal = 123
+      const id_terminal = id_transportista_irge
       
       if (data.length > 0) {
         data.forEach(carrier => {
@@ -1364,7 +1371,7 @@ async function getDestinations() {
   .then(response => {
       const { data } = response.data
       console.log("🚀 ~ file: app.js:1325 ~ getDestinantions ~ data:", data)
-      const id_destino_bd = 603
+      const id_destino_bd = id_destino_tpa
       
       if (data.length > 0) {
 
@@ -1442,7 +1449,8 @@ async function getDestinations() {
   .then(response => {
     const { data } = response.data
     console.log("🚀 ~ file: app.js:1399 ~ getDestinantions ~ data:", data)
-    const id_destino_bd = 557
+    const id_destino_bd = id_destino_irge
+    
     if (data.length > 0) {
 
       data.forEach(destination => {
