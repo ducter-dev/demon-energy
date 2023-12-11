@@ -6,8 +6,16 @@ const { subDays } = require('date-fns')
 const format_date = require('date-fns/format')
 const FormData = require('form-data')
 const winston = require('winston')
-const { format } = require('winston')
+const { format, prettyPrint } = require('winston')
 const DailyRotateFile = require('winston-daily-rotate-file')
+const apiWebhooks = require('./webhooks')
+
+
+const timezoned = () => {
+  return new Date().toLocaleString('es-MX', {
+      timeZone: 'America/Mexico_City'
+  });
+}
 
 // Configura el transportador para el registro de información diario
 const infoTransport = new DailyRotateFile({
@@ -28,8 +36,8 @@ const errorTransport = new DailyRotateFile({
 // Crea un registrador de Winston
 const logger = winston.createLogger({
   format: format.combine(
-    format.timestamp(),
-    format.json()
+    format.timestamp({ format: timezoned}),
+    format.prettyPrint()
   ),
   transports: [infoTransport, errorTransport]
 })
@@ -90,9 +98,10 @@ async function getDataRDCTPA() {
       INNER JOIN embarques emb ON e.NoEmbarque = emb.embarque
       INNER JOIN subgrupos s ON e.subgrupo = s.id
       INNER JOIN companias c ON e.compania = c.id
-      WHERE e.fechaJornada = '${fechaReporte}' ORDER BY e.id ASC`
+      WHERE e.fechaJornada = '${fechaReporte}' AND e.compania != 2 ORDER BY e.id ASC`
     
     conexion.query(sql, (error, results) => {
+      console.log("🚀 ~ file: rdc.js:104 ~ conexion.query ~ results:", results)
       if (error) {
         console.error(`Error al realizar la inserción del programa diaria: ${error.stack}`.bgRed)
         logger.error(`Error al realizar la inserción del programa diaria: ${error.stack}`)
@@ -106,29 +115,26 @@ async function getDataRDCTPA() {
       }
       
       finalResults.forEach(carga => {
-        if (carga.idCompania == 2) {
-          const galones = parseFloat(parseInt(carga.masa) / parseFloat(carga.densidad20) * 0.264172)  
-          carga.galones = galones
-          carga.terminal_id = 1
-          cargasPendientes.push(carga)
-        }
+        const galones = parseFloat(parseInt(carga.masa) / parseFloat(carga.densidad20) * 0.264172)  
+        carga.galones = galones
+        carga.terminal_id = 1
+        cargasPendientes.push(carga)
       })
       
+      
       // Enviara actualización del RDC por carga
-      const url_rdc = `${api_url}/rdc`
-
       const jsonCargas = {
         meta_data: cargasPendientes
       }
       
       let config = {
         method: 'post',
-        url: url_rdc,
+        url: '/rdc',
         headers: { },
         data: jsonCargas
       }
 
-      axios.request(config)
+      apiWebhooks.request(config)
         .then( response => {
           console.log(`${response.data.message}`.bgGreen)
           logger.info(`${response.data.message}`)
@@ -178,9 +184,7 @@ async function getDataRDCIRGE() {
       INNER JOIN embarques emb ON e.NoEmbarque = emb.embarque
       INNER JOIN subgrupos s ON e.subgrupo = s.id
       INNER JOIN companias c ON e.compania = c.id
-      WHERE e.fechaJornada = '${fechaReporte}' 
-      ORDER BY e.id ASC`
-  
+      WHERE e.fechaJornada = '${fechaReporte}' AND e.compania != 2 ORDER BY e.id ASC`
     conexion.query(sql, (error, results) => {
       if (error) {
         console.error(`Error al realizar la inserción del programa diaria: ${error.stack}`.bgRed)
@@ -195,29 +199,25 @@ async function getDataRDCIRGE() {
       }
       
       finalResults.forEach(carga => {
-        if (carga.idCompania == 2) {
-          const galones = parseFloat(parseInt(carga.masa) / parseFloat(carga.densidad20) * 0.264172)  
-          carga.galones = galones
-          carga.terminal_id = 2
-          cargasPendientes.push(carga)
-        }
+        const galones = parseFloat(parseInt(carga.masa) / parseFloat(carga.densidad20) * 0.264172)  
+        carga.galones = galones
+        carga.terminal_id = 2
+        cargasPendientes.push(carga)
       })
       
       // Enviara actualización del RDC por carga
-      const url_rdc = `${api_url}/rdc`
-
       const jsonCargas = {
         meta_data: cargasPendientes
       }
       
       let config = {
         method: 'post',
-        url: url_rdc,
+        url: '/rdc',
         headers: { },
         data: jsonCargas
       }
 
-      axios.request(config)
+      apiWebhooks.request(config)
         .then( response => {
           console.log(`${response.data.message}`.bgGreen)
           logger.info(`${response.data.message}`)
