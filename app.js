@@ -43,16 +43,19 @@ const logger = winston.createLogger({
 
 colors.enable()
 
-const port = process.env.PORT_DB_TPA
-const dbHostTPA = process.env.HOST_DB_TPA
-const dbUserTPA = process.env.USER_DB_TPA
-const dbPasswordTPA = process.env.PASSWORD_DB_TPA
-const dbDatabaseTPA = process.env.DB_TPA
+const enviroment = process.env.ENVIROMENT
+console.log("🚀 ~ file: app.js:47 ~ enviroment:", enviroment)
 
-const dbHostIRGE = process.env.HOST_DB_IRGE
-const dbUserIRGE = process.env.USER_DB_IRGE
-const dbPasswordIRGE = process.env.PASSWORD_DB_IRGE
-const dbDatabaseIRGE = process.env.DB_IRGE
+const port = process.env.PORT_DB_TPA
+const dbHostTPA = enviroment === 'production' ? process.env.HOST_DB_TPA : process.env.HOST_DB_TPA_LOCAL
+const dbUserTPA = enviroment === 'production' ? process.env.USER_DB_TPA : process.env.USER_DB_TPA_LOCAL
+const dbPasswordTPA = enviroment === 'production' ? process.env.PASSWORD_DB_TPA : process.env.PASSWORD_DB_TPA_LOCAL
+const dbDatabaseTPA = enviroment === 'production' ? process.env.DB_TPA : process.env.DB_TPA_LOCAL
+
+const dbHostIRGE = enviroment === 'production' ? process.env.HOST_DB_IRGE : process.env.HOST_DB_IRGE_LOCAL
+const dbUserIRGE = enviroment === 'production' ? process.env.USER_DB_IRGE : process.env.USER_DB_IRGE_LOCAL
+const dbPasswordIRGE = enviroment === 'production' ? process.env.PASSWORD_DB_IRGE : process.env.PASSWORD_DB_IRGE_LOCAL
+const dbDatabaseIRGE = enviroment === 'production' ? process.env.DB_IRGE : process.env.DB_IRGE_LOCAL
 
 const id_user_reg = process.env.ID_USER_REG
 const user_reg = process.env.USER_REG
