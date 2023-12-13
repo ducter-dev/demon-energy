@@ -343,7 +343,6 @@ async function getOperatorsUpdated() {
   await apiWebhooks.get('/operators/update?terminal=tpa')
     .then(response => {
       const { data } = response.data
-      console.log("🚀 ~ file: app.js:323 ~ getOperatorsUpdated ~ data:", data)
       
       if (data.length > 0) {
         data.forEach(operator => {
@@ -415,7 +414,6 @@ async function getOperatorsUpdated() {
   await apiWebhooks.get('/operators/update?terminal=irge')
     .then(response => {
       const { data } = response.data
-      console.log("🚀 ~ file: app.js:395 ~ getOperatorsUpdated ~ data:", data)
       
       if (data.length > 0) {
         data.forEach(operator => {
@@ -1031,7 +1029,6 @@ async function getProgramTPA()
   await apiWebhooks.get('/programs?terminal=tpa')
     .then(response => {
       const { data } = response.data
-      console.log("🚀 ~ file: app.js:1016 ~ data TPA:", data)
       
       if (data.length > 0) {
         
@@ -1055,7 +1052,7 @@ async function getProgramTPA()
             }
   
             const sql = `INSERT INTO accesos (claveAcceso, fechaLlegada, embarque, estado, presion, fechaReporte, pg, idUser_reg, usuario_reg, subgrupo, programa, id_programa_energy)
-                        VALUES ('${program.clave}', '${fechaFormateada}', 0, 1, 0, '${fechaReporte}', '${program.pg}', '${id_user_reg}', '${user_reg}', '${subgrupo.clave}', 1, ${program.ID})`
+                        VALUES ('${program.clave}', '${program.fecha_programada}', 0, 0, 0, '${program.fecha_programada}', '${program.pg}', '${id_user_reg}', '${user_reg}', '${subgrupo.clave}', 1, ${program.ID})`
             console.log("🚀 ~ file: index.js:912 ~ conexion.connect ~ sql:", sql)
 
             conexion.query(sql, (error, result) => {
@@ -1125,8 +1122,6 @@ async function getProgramIRGE()
   await apiWebhooks.get('/programs?terminal=irge')
     .then(response => {
       const { data } = response.data
-      console.log("🚀 ~ file: app.js:1100 ~ data IRGE:", data)
-      
       if (data.length > 0) {
         
         data.forEach(async(program) => {
@@ -1150,7 +1145,7 @@ async function getProgramIRGE()
             }
 
             const sql = `INSERT INTO accesos (claveAcceso, fechaLlegada, embarque, estado, presion, fechaReporte, pg, idUser_reg, usuario_reg, subgrupo, programa, id_programa_energy)
-                        VALUES ('${program.clave}', '${fechaFormateada}', 0, 1, 0, '${fechaReporte}', '${program.pg}', '${id_user_reg}', '${user_reg}', '${subgrupo.clave}', 1, ${program.ID})`
+                        VALUES ('${program.clave}', '${program.fecha_programada}', 0, 0, 0, '${program.fecha_programada}', '${program.pg}', '${id_user_reg}', '${user_reg}', '${subgrupo.clave}', 1, ${program.ID})`
             console.log("🚀 ~ file: index.js:998 ~ conexion.connect ~ sql:", sql)
                                 
             conexion.query(sql, (error, result) => {
@@ -1210,7 +1205,6 @@ async function getCarriersTPA () {
   await apiWebhooks.get('/carriers?terminal=tpa')
     .then(response => {
       const { data } = response.data
-      console.log("🚀 ~ file: app.js:1024 ~ getCarriersTPA ~ data:", data)
       const id_terminal = id_transportista_tpa
       
       if (data.length > 0) {
@@ -1373,7 +1367,6 @@ async function getDestinations() {
   await apiWebhooks.get('/destinations?terminal=tpa')
   .then(response => {
       const { data } = response.data
-      console.log("🚀 ~ file: app.js:1325 ~ getDestinantions ~ data:", data)
       const id_destino_bd = id_destino_tpa
       
       if (data.length > 0) {
@@ -1451,7 +1444,6 @@ async function getDestinations() {
   await apiWebhooks.get('/destinations?terminal=irge')
   .then(response => {
     const { data } = response.data
-    console.log("🚀 ~ file: app.js:1399 ~ getDestinantions ~ data:", data)
     const id_destino_bd = id_destino_irge
     
     if (data.length > 0) {
