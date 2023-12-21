@@ -1052,7 +1052,7 @@ async function getProgramTPA()
             }
   
             const sql = `INSERT INTO accesos (claveAcceso, fechaLlegada, embarque, estado, presion, fechaReporte, pg, idUser_reg, usuario_reg, subgrupo, programa, id_programa_energy)
-                        VALUES ('${program.clave}', '${program.fecha_programada}', 0, 0, 0, '${program.fecha_programada}', '${program.pg}', '${id_user_reg}', '${user_reg}', '${subgrupo.clave}', 1, ${program.ID})`
+                        VALUES ('${program.clave}', '${fechaFormateada}', 0, 1, 0, '${program.fecha_programada}', '${program.pg}', '${id_user_reg}', '${user_reg}', '${subgrupo.clave}', 1, ${program.ID})`
             console.log("🚀 ~ file: index.js:912 ~ conexion.connect ~ sql:", sql)
 
             conexion.query(sql, (error, result) => {
@@ -1145,7 +1145,7 @@ async function getProgramIRGE()
             }
 
             const sql = `INSERT INTO accesos (claveAcceso, fechaLlegada, embarque, estado, presion, fechaReporte, pg, idUser_reg, usuario_reg, subgrupo, programa, id_programa_energy)
-                        VALUES ('${program.clave}', '${program.fecha_programada}', 0, 0, 0, '${program.fecha_programada}', '${program.pg}', '${id_user_reg}', '${user_reg}', '${subgrupo.clave}', 1, ${program.ID})`
+                        VALUES ('${program.clave}', '${fechaFormateada}', 0, 1, 0, '${program.fecha_programada}', '${program.pg}', '${id_user_reg}', '${user_reg}', '${subgrupo.clave}', 1, ${program.ID})`
             console.log("🚀 ~ file: index.js:998 ~ conexion.connect ~ sql:", sql)
                                 
             conexion.query(sql, (error, result) => {
