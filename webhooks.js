@@ -9,6 +9,7 @@ const apiWebhooks = axios.create({ baseURL: api_url})
 apiWebhooks.interceptors.request.use(
   config => {
     config.headers['API-KEY'] = api_key
+    config.headers['X-Decrypt-Responses'] = true
     return config
   },
   error => {
@@ -17,7 +18,7 @@ apiWebhooks.interceptors.request.use(
 )
 
 
-apiWebhooks.interceptors.response.use(
+/* apiWebhooks.interceptors.response.use(
   response => {
     var encrypted_json = JSON.parse(atob(response.data))
 
@@ -72,7 +73,7 @@ apiWebhooks.interceptors.response.use(
       })
     }
   }
-)
+) */
 
 
 module.exports = apiWebhooks

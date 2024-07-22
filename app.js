@@ -74,7 +74,6 @@ const id_autotanque_irge = parseInt(process.env.ID_AUTOTANQUE_IRGE)
  * @return {Promise<void>} Returns a promise that resolves when the monitoring is complete.
  */
 async function monitorearEnergy() {
-  console.log('🚀 Iniciando monitoreo de energy24-7'.bgBlue)
   logger.info('🚀 Iniciando monitoreo de energy24-7')
   await getCustomersNews()
   //setTimeout(monitorearEnergy, 60000)
@@ -91,6 +90,7 @@ async function getCustomersNews() {
   await apiWebhooks.get('/subgroups')
     .then(response => {
       const { data } = response.data
+      console.log("🚀 ~ getCustomersNews ~ data:", data)
       
       if (data.length > 0) {
 
@@ -154,7 +154,7 @@ async function getCustomersNews() {
                   logger.info(`${response.data.message}`)
                 })
                 .catch((error) => {
-                  console.log(`Error: ${error}`.bgRed)
+                  console.log(`Error 157: ${error}`.bgRed)
                   logger.error(`Error: ${error}`)
                 })
             })
@@ -186,6 +186,7 @@ async function getOperatorsNews() {
   await apiWebhooks.get('/operators?terminal=tpa')
     .then(response => {
       const { data } = response.data
+      console.log("🚀 ~ getOperatorsNews ~ data:", data)
       
       if (data.length > 0) {
 
@@ -250,7 +251,7 @@ async function getOperatorsNews() {
       }
     })
     .catch(error => {
-      console.log(`Error: ${error}`.bgRed)
+      console.log(`Error 254: ${error}`.bgRed)
       logger.error(`Error: ${error}`)
     })
 
@@ -259,6 +260,7 @@ async function getOperatorsNews() {
   await apiWebhooks.get('/operators?terminal=irge')
   .then(response => {
     const { data } = response.data
+    console.log("🚀 ~ getOperatorsNews ~ data:", data)
 
     if (data.length > 0) {
 
@@ -311,7 +313,7 @@ async function getOperatorsNews() {
                 logger.info(`${response.data.message}`)
               })
               .catch((error) => {
-                console.log(`Error: ${error}`.bgRed)
+                console.log(`Error 316: ${error}`.bgRed)
                 logger.error(`Error: ${error}`)
               })
           })
@@ -324,7 +326,7 @@ async function getOperatorsNews() {
     }
   })
   .catch(error => {
-    console.log(`Error: ${error}`.bgRed)
+    console.log(`Error 329: ${error}`.bgRed)
     logger.error(`Error: ${error}`.bgRed)
   })
   
@@ -343,6 +345,7 @@ async function getOperatorsUpdated() {
   await apiWebhooks.get('/operators/update?terminal=tpa')
     .then(response => {
       const { data } = response.data
+      console.log("🚀 ~ getOperatorsUpdated ~ data:", data)
       
       if (data.length > 0) {
         data.forEach(operator => {
@@ -414,6 +417,7 @@ async function getOperatorsUpdated() {
   await apiWebhooks.get('/operators/update?terminal=irge')
     .then(response => {
       const { data } = response.data
+      console.log("🚀 ~ getOperatorsUpdated ~ data:", data)
       
       if (data.length > 0) {
         data.forEach(operator => {
@@ -497,6 +501,7 @@ async function getEquipmentsNewsTPA() {
   await apiWebhooks.get('/equipments?terminal=tpa')
     .then(response => {
       const { data } = response.data
+      console.log("🚀 ~ getEquipmentsNewsTPA ~ data:", data)
       
       if (data.length > 0) {
 
@@ -571,6 +576,7 @@ async function getEquipmentsNewsIRGE() {
   await apiWebhooks.get('/equipments?terminal=irge')
     .then(response => {
       const { data } = response.data
+      console.log("🚀 ~ getEquipmentsNewsIRGE ~ data:", data)
       
       if (data.length > 0) {
 
@@ -651,6 +657,7 @@ async function getNominations ()
   await apiWebhooks.get('/nominations')
     .then(response => {
       const { data } = response.data
+      console.log("🚀 ~ data:", data)
       
       if (data.length > 0) {
 
@@ -886,6 +893,7 @@ async function getDailyNominations()
   await apiWebhooks.get('/daily_nominations')
     .then(response => {
       const { data } = response.data
+      console.log("🚀 ~ data:", data)
       
       if (data.length > 0) {
         data.forEach(daily_nom => {
@@ -1029,6 +1037,7 @@ async function getProgramTPA()
   await apiWebhooks.get('/programs?terminal=tpa')
     .then(response => {
       const { data } = response.data
+      console.log("🚀 ~ data:", data)
       
       if (data.length > 0) {
         
@@ -1122,6 +1131,7 @@ async function getProgramIRGE()
   await apiWebhooks.get('/programs?terminal=irge')
     .then(response => {
       const { data } = response.data
+      console.log("🚀 ~ data:", data)
       if (data.length > 0) {
         
         data.forEach(async(program) => {
@@ -1205,6 +1215,7 @@ async function getCarriersTPA () {
   await apiWebhooks.get('/carriers?terminal=tpa')
     .then(response => {
       const { data } = response.data
+      console.log("🚀 ~ getCarriersTPA ~ data:", data)
       const id_terminal = id_transportista_tpa
       
       if (data.length > 0) {
@@ -1285,6 +1296,7 @@ async function getCarriersIRGE () {
   await apiWebhooks.get('/carriers?terminal=irge')
     .then(response => {
       const { data } = response.data
+      console.log("🚀 ~ getCarriersIRGE ~ data:", data)
       
       const id_terminal = id_transportista_irge
       
@@ -1367,6 +1379,7 @@ async function getDestinations() {
   await apiWebhooks.get('/destinations?terminal=tpa')
   .then(response => {
       const { data } = response.data
+      console.log("🚀 ~ getDestinations ~ data:", data)
       const id_destino_bd = id_destino_tpa
       
       if (data.length > 0) {
@@ -1444,6 +1457,7 @@ async function getDestinations() {
   await apiWebhooks.get('/destinations?terminal=irge')
   .then(response => {
     const { data } = response.data
+    console.log("🚀 ~ getDestinations ~ data:", data)
     const id_destino_bd = id_destino_irge
     
     if (data.length > 0) {
